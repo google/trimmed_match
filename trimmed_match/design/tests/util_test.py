@@ -296,5 +296,13 @@ class UtilTest(unittest.TestCase):
         str(cm.exception),
         'frequency should be one of ["infer", "D", "W"], got invalid')
 
+  def testHumanReadableFormat(self):
+    numbers = [123, 10765, 13987482, 8927462746, 1020000000000]
+    numb_formatted = [
+        util.human_readable_number(num) for num in numbers
+    ]
+    self.assertEqual(numb_formatted, ['123', '10.8K', '14M', '8.93B', '1.02tn'])
+
+
 if __name__ == '__main__':
   unittest.main()

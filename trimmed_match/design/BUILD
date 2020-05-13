@@ -45,7 +45,10 @@ py_library(
         "plot_utilities.py",
     ],
     srcs_version = "PY3",
-    deps = [":common_classes"],
+    deps = [
+        ":common_classes",
+        ":util",
+    ],
 )
 
 py_library(

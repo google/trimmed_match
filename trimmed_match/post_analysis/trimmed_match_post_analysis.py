@@ -19,7 +19,7 @@
 import collections
 import pandas as pd
 from trimmed_match import estimator
-from trimmed_match.design import plot_utilities
+from trimmed_match.design import util
 
 TrimmedMatchData = collections.namedtuple('TrimmedMatchData', [
     'pair', 'treatment_response', 'control_response', 'treatment_cost',
@@ -139,10 +139,10 @@ def report_experiment_results(results: TrimmedMatchResults):
           fit.conf_interval_low, fit.conf_interval_up))
 
   print('cost = {}'.format(
-      plot_utilities.human_readable_number(results.incremental_cost)))
+      util.human_readable_number(results.incremental_cost)))
   print('\nincremental response = {}'.format(
-      plot_utilities.human_readable_number(results.lift)))
+      util.human_readable_number(results.lift)))
   print('\ntreatment response = {}'.format(
-      plot_utilities.human_readable_number(results.treatment_response)))
+      util.human_readable_number(results.treatment_response)))
   print('\nincremental response as % of treatment response = {:.2f}%\n'.format(
       results.lift * 100 / results.treatment_response))

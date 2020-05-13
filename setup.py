@@ -31,7 +31,11 @@ PROJECT_NAME = 'trimmed_match'
 
 REQUIRED_PACKAGES = [
     'absl-py',
+    'matplotlib',
     'numpy>=1.8.0rc1',
+    'pandas',
+    'seaborn',
+    'setuptools',
     'six>=1.4.1',
 ]
 
@@ -40,8 +44,12 @@ WORKSPACE_PYTHON_HEADERS_PATTERN = re.compile(
 
 IS_WINDOWS = sys.platform.startswith('win')
 
-if sys.version < '3.7':
-  raise ValueError("Requires python 3.7+, but detects {!r}".format(sys.version))
+environment_variable_name = 'PYTHON_BIN_PATH'
+environment_variable_value = os.environ.get(environment_variable_name, None)
+
+if environment_variable_value is None:
+  sys.stderr.write("Using '%s=%s' environment variable!\n" %
+                   (environment_variable_name, environment_variable_value))
 
 
 class BazelExtension(setuptools.Extension):
@@ -79,8 +87,7 @@ class BuildBazelExtension(build_ext.build_ext):
     bazel_argv = [
         'bazel', 'build', ext.bazel_target + '.so',
         '--symlink_prefix=' + os.path.join(self.build_temp, 'bazel-'),
-        '--compilation_mode=' + ('dbg' if self.debug else 'opt'),
-        '--action_env=PYTHON_BIN_PATH=/usr/bin/python3'
+        '--compilation_mode=' + ('dbg' if self.debug else 'opt')
     ]
 
     if IS_WINDOWS:
@@ -113,4 +120,4 @@ setuptools.setup(
     cmdclass=dict(build_ext=BuildBazelExtension),
     packages=setuptools.find_packages(),
     install_requires=REQUIRED_PACKAGES,
-)
+    python_requires='>=3.6')

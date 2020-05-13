@@ -21,17 +21,10 @@ Our current version has been tested with python 3.7 in Linux. The code may be in
 
 ### Prerequisites
   * The build tool `bazel`: see the instruction at https://github.com/bazelbuild/bazel.
-
-  * Installation of `pip`:
-
-  ```
-  sudo apt-get install python3-pip
-  ```
-
-* Python libraries:
+  * Python libraries:
 
   ```
-  python3 -m pip install --user absl-py dataclasses matplotlib numpy pandas pybind11 seaborn setuptools six
+  python3 -m pip install --user absl-py matplotlib numpy pandas seaborn setuptools six
   ```
 
 ### Trimmed Match can be installed using `pip`
@@ -52,7 +45,7 @@ bazel test ... --action_env=PYTHON_BIN_PATH=/usr/bin/python3
 Then `pip` install:
 
 ```
-python3 setup.py bdist_wheel
+PYTHON_BIN_PATH=/usr/bin/python3 python3 setup.py bdist_wheel
 
 python3 -m pip install dist/trimmed_match*
 ```

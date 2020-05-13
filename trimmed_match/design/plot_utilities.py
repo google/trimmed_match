@@ -23,29 +23,9 @@ import pandas as pd
 import seaborn as sns
 
 from trimmed_match.design import common_classes
+from trimmed_match.design import util
 
 TimeWindow = common_classes.TimeWindow
-
-
-def human_readable_number(number: float) -> str:
-  """Print a large number in a readable format.
-
-  Return a readable format for a number, e.g. 123 milions becomes 123M.
-
-  Args:
-    number: a float to be printed in human readable format.
-
-  Returns:
-    readable_number: a string containing the formatted number.
-  """
-  number = float('{:.3g}'.format(number))
-  magnitude = 0
-  while abs(number) >= 1000 and magnitude < 4:
-    magnitude += 1
-    number /= 1000.0
-  readable_number = '{}{}'.format('{:f}'.format(number).rstrip('0').rstrip('.'),
-                                  ['', 'K', 'M', 'B', 'tn'][magnitude])
-  return readable_number
 
 
 def plot_candidate_design_rmse(
@@ -104,7 +84,7 @@ def plot_candidate_design_rmse(
         ax.text(
             row.num_pairs_filtered + 1, row.rmse + delta,
             '{}'.format(
-                human_readable_number(row.experiment_response)))
+                util.human_readable_number(row.experiment_response)))
       ax.set_xlabel('#(Excluded geo pairs)')
       ax.set_ylabel('RMSE')
       ax.set_title(

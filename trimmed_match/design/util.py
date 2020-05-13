@@ -219,3 +219,24 @@ def infer_frequency(data: pd.DataFrame, date_index: str,
                      series_frequencies[0])
 
   return frequency
+
+
+def human_readable_number(number: float) -> str:
+  """Print a large number in a readable format.
+
+  Return a readable format for a number, e.g. 123 milions becomes 123M.
+
+  Args:
+    number: a float to be printed in human readable format.
+
+  Returns:
+    readable_number: a string containing the formatted number.
+  """
+  number = float('{:.3g}'.format(number))
+  magnitude = 0
+  while abs(number) >= 1000 and magnitude < 4:
+    magnitude += 1
+    number /= 1000.0
+  readable_number = '{}{}'.format('{:f}'.format(number).rstrip('0').rstrip('.'),
+                                  ['', 'K', 'M', 'B', 'tn'][magnitude])
+  return readable_number
