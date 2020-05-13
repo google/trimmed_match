@@ -40,6 +40,9 @@ WORKSPACE_PYTHON_HEADERS_PATTERN = re.compile(
 
 IS_WINDOWS = sys.platform.startswith('win')
 
+if sys.version < '3.7':
+  raise ValueError("Requires python 3.7+, but detects {!r}".format(sys.version))
+
 
 class BazelExtension(setuptools.Extension):
   """A C/C++ extension that is defined as a Bazel BUILD target."""
@@ -74,9 +77,7 @@ class BuildBazelExtension(build_ext.build_ext):
       os.makedirs(self.build_temp)
 
     bazel_argv = [
-        'bazel',
-        'build',
-        ext.bazel_target + '.so',
+        'bazel', 'build', ext.bazel_target + '.so',
         '--symlink_prefix=' + os.path.join(self.build_temp, 'bazel-'),
         '--compilation_mode=' + ('dbg' if self.debug else 'opt'),
         '--action_env=PYTHON_BIN_PATH=/usr/bin/python3'

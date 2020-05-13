@@ -192,12 +192,12 @@ std::pair<double, double> GeoxDataUtil::RangeFromStudentizedTrimmedMean(
   if (trim_rate == 0.0) {
     const double H = (threshold * threshold * num_pairs_) / (num_pairs_ - 1);
     double X1 = 0.0, Y1 = 0.0, X2 = 0.0, Y2 = 0.0, Z = 0.0;
-    for (const auto [delta_response, delta_cost] : geox_data_) {
-      X1 += delta_cost;
-      Y1 += delta_response;
-      X2 += Square(delta_cost);
-      Y2 += Square(delta_response);
-      Z += delta_response * delta_cost;
+    for (const auto& x : geox_data_) {
+      X1 += x.delta_cost;
+      Y1 += x.delta_response;
+      X2 += Square(x.delta_cost);
+      Y2 += Square(x.delta_response);
+      Z += x.delta_response * x.delta_cost;
     }
     const double r = 1.0 + H / num_pairs_;
     QuadraticInequality qi(H * X2 - r * X1 * X1, H * Z - r * X1 * Y1,
@@ -343,10 +343,10 @@ std::pair<double, double> GeoxDataUtil::RangeFromStudentizedTrimmedMean(
   // Identifies the range.
   double ci_low = std::numeric_limits<double>::max();
   double ci_up = -std::numeric_limits<double>::max();
-  for (const auto [first, second] : candidates) {
-    if (std::isnan(first)) continue;
-    ci_low = std::min(ci_low, first);
-    ci_up = std::max(ci_up, second);
+  for (const auto& x : candidates) {
+    if (std::isnan(x.first)) continue;
+    ci_low = std::min(ci_low, x.first);
+    ci_up = std::max(ci_up, x.second);
   }
 
   if (ci_low > ci_up) {

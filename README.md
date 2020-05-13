@@ -8,7 +8,7 @@ This is not an officially supported Google product. For research purposes only.
 
 ## Description
 
-How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. In order to address these technical issues, Trimmed Match (Chen & Au, 2019) has recently been developed to improve existing methodologies in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
+How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. In order to address these technical issues, Trimmed Match (Chen & Au, 2019) has recently been proposed to improve existing methodologies in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
 
 This directory contains
 
@@ -17,7 +17,7 @@ This directory contains
   * (TBD) Colab demos for trimmed match design and post analysis, separately.
 
 ## Installation
-Our current version has been tested with python3 under Linux.
+Our current version has been tested with python 3.7 in Linux. The code may be incompatible with Python 3.5 or lower versions.
 
 ### Prerequisites
   * The build tool `bazel`: see the instruction at https://github.com/bazelbuild/bazel.
@@ -40,6 +40,7 @@ First clone from github:
 
 ```
 git clone https://github.com/google/trimmed_match
+cd trimmed_match
 ```
 
 To make sure the package and all dependencies are installed properly, run

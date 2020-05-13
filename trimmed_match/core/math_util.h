@@ -24,10 +24,10 @@
 
 namespace trimmedmatch {
 
-inline constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+static double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 // Bound for iROAS.
-inline constexpr double kBoundIroas = 1e10;
+static double kBoundIroas = 1e10;
 
 // The Square function.
 inline double Square(const double x) { return x * x; }

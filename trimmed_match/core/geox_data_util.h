@@ -29,7 +29,7 @@
 namespace trimmedmatch {
 
 // Variation less than 1e-10 USD in delta_cost can be ignored.
-inline constexpr double kTieBreaker = 1e-10;
+static double kTieBreaker = 1e-10;
 
 // (difference of response, difference of costs) within a pair of geos, one
 // for treatment and the other for control, where the difference is defined as

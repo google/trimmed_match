@@ -94,20 +94,6 @@ py_test(
 )
 
 py_test(
-    name = "plot_utilities_test",
-    size = "small",
-    srcs = [
-        "tests/plot_utilities_test.py",
-    ],
-    python_version = "PY3",
-    deps = [
-        ":common_classes",
-        ":plot_utilities",
-        ":trimmed_match_design",
-    ],
-)
-
-py_test(
     name = "util_test",
     size = "small",
     srcs = [

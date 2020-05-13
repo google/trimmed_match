@@ -36,14 +36,14 @@ namespace trimmedmatch {
 namespace {
 
 // Maximum trim rate.
-inline constexpr double kMaxTrimRate = 0.30;
+static double kMaxTrimRate = 0.30;
 
 // If ci width is > std.error * this value, uses 3 times normal quantile.
 // It is possible that the confidence interval calculated from the inequality
 // (5.7) in https://ai.google/research/pubs/pub48448/ may be (-infty, infty),
 // for which three times of the Normal-approximate CI width is used.
-inline constexpr double kExtremeCiWidth = 1e6;
-inline constexpr double kNormalMultiplier = 3.0;
+static double kExtremeCiWidth = 1e6;
+static double kNormalMultiplier = 3.0;
 
 struct ResidualAndDeltaCost {
   double res;
