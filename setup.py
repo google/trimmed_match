@@ -120,4 +120,4 @@ setuptools.setup(
     cmdclass=dict(build_ext=BuildBazelExtension),
     packages=setuptools.find_packages(),
     install_requires=REQUIRED_PACKAGES,
-    python_requires='>=3.6')
+    python_requires='>=3.7')
