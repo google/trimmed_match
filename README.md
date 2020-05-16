@@ -86,6 +86,7 @@ print('iroas=%.2f, ci=(%.2f, %.2f)' % (
       report.estimate, report.conf_interval_low, report.conf_interval_up))
 
 # iroas=1.60, ci=(1.52, 1.66)
+```
 
 
 ## References
