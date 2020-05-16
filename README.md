@@ -88,36 +88,6 @@ print('iroas=%.2f, ci=(%.2f, %.2f)' % (
 # iroas=1.60, ci=(1.52, 1.66)
 
 
-#####################################################################
-# Designs a trimmed matched pairs geo experiment
-#####################################################################
-
-pretest_data = pd.DataFrame(data={
-   'date': ['2019-01-01','2019-03-01'] * 30,
-   'geo': np.repeat(range(30), 2),
-   'sales': range(60),
-   'cost': range(60),
-   'transactions': range(60),
-})
-
-response = 'sales'
-spend_proxy = 'cost'
-matching_metrics = {'sales':1.0, 'transactions':1.0, 'cost':.01}
-time_window_for_design = TimeWindow('2019-01-01', '2019-03-01')
-time_window_for_eval = TimeWindow('2019-02-01', '2019-03-01')
-
-tmd = TrimmedMatchGeoXDesign(
-   GeoXType.HEAVY_UP, pretest_data, response, matching_metrics,
-   time_window_for_design, time_window_for_eval)
-
-budget_list = [100.0]
-hypothesized_iroas_list = [1.0]
-candidate_designs = tmd.report_candidate_designs(
-   budget_list, hypothesized_iroas_list, spend_proxy,
-   num_pairs_filtered_list=[0])
-
-```
-
 ## References
 
 Aiyou Chen and Tim Au (2019). Robust Causal Inference for Incremental Return on Ad Spend with Randomized Geo Experiments.
