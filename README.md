@@ -17,7 +17,7 @@ This directory contains
   * (TBD) Colab demos for trimmed match design and post analysis, separately.
 
 ## Installation
-Our current version has been tested with python 3.7 in Linux. The code may be incompatible with Python 3.5 or lower versions.
+Our current version has been tested with python 3.7 in Linux. The code may be incompatible with Python 3.6 or lower versions.
 
 ### Prerequisites
   * The build tool `bazel`: see the instruction at https://github.com/bazelbuild/bazel.
