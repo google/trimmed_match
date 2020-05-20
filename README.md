@@ -17,9 +17,11 @@ This directory contains
   * (TBD) Colab demos for trimmed match design and post analysis, separately.
 
 ## Installation
+
 Our current version has been tested with python 3.7 in Linux. The code may be incompatible with Python 3.6 or lower versions.
 
 ### Prerequisites
+
   * A Python 3 development environment with `setuptools` and `git`:
 
   ```
@@ -74,7 +76,7 @@ With Python programming, here is a toy example.
 
 ```python
 import trimmed_match
-from trimmed_match.estimator importTrimmedMatch
+from trimmed_match.estimator import TrimmedMatch
 
 
 #####################################################################
