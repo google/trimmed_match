@@ -6,6 +6,8 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+load("@my_deps//:requirements.bzl", "requirement")
+
 cc_library(
     name = "estimator",
     srcs = ["estimator.cc"],

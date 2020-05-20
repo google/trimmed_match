@@ -1,3 +1,5 @@
+load("@my_deps//:requirements.bzl", "requirement")
+
 licenses(["notice"])
 
 exports_files(["LICENSE"])
@@ -10,6 +12,7 @@ py_library(
     data = ["//trimmed_match/core/python:estimator_ext.so"],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
+    deps = [requirement("numpy")],
 )
 
 py_test(

@@ -8,7 +8,7 @@ This is not an officially supported Google product. For research purposes only.
 
 ## Description
 
-How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. In order to address these technical issues, Trimmed Match (Chen & Au, 2019) has recently been proposed to improve existing methodologies in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
+How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. In order to address these technical issues, Trimmed Match (Chen & Au, 2019) has recently been developed to improve existing methodologies in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
 
 This directory contains
 
@@ -20,34 +20,43 @@ This directory contains
 Our current version has been tested with python 3.7 in Linux. The code may be incompatible with Python 3.6 or lower versions.
 
 ### Prerequisites
-  * The build tool `bazel`: see the instruction at https://github.com/bazelbuild/bazel.
-  * Python libraries:
+  * A Python 3 development environment with `setuptools` and `git`:
 
   ```
-  python3 -m pip install --user absl-py matplotlib numpy pandas seaborn setuptools six
+  sudo apt-get install python3-dev python3-setuptools git
   ```
 
-### Trimmed Match can be installed using `pip`
+  * The build tool `bazel`: Installation instructions can be found at
+  https://github.com/bazelbuild/bazel.
+
+### Trimmed Match can be installed using `setuptools`
 
 First clone from github:
 
-```
+```shell
 git clone https://github.com/google/trimmed_match
 cd trimmed_match
 ```
 
-To make sure the package and all dependencies are installed properly, run
+If your Python 3 interpreter is not `/usr/bin/python3`, set the environment variable `PYTHON_BIN_PATH` to point to it, for example:
+
+```shell
+export PYTHON_BIN_PATH=`which python3`
+```
+
+Then build and install the extension using the supplied `setup.py` file and `setuptools`.
 
 ```
-bazel test ... --action_env=PYTHON_BIN_PATH=/usr/bin/python3
+python3 setup.py install --user
 ```
 
-Then `pip` install:
+This will automatically build the extension using `bazel`. 
+
+You can run the unit tests using:
 
 ```
-PYTHON_BIN_PATH=/usr/bin/python3 python3 setup.py bdist_wheel
+bazel test //...:all
 
-python3 -m pip install dist/trimmed_match*
 ```
 
 ## Usage
@@ -64,12 +73,8 @@ notebooks (<span style="color:blue">to be added</span>), and the recommended way
 With Python programming, here is a toy example.
 
 ```python
-import numpy as np
-import pandas as pd
 import trimmed_match
-from trimmed_match.estimator import Report, TrimmedMatch
-from trimmed_match.design.common_classes import GeoXType, TimeWindow
-from trimmed_match.design.trimmed_match_design import TrimmedMatchGeoXDesign
+from trimmed_match.estimator importTrimmedMatch
 
 
 #####################################################################
@@ -86,8 +91,8 @@ print('iroas=%.2f, ci=(%.2f, %.2f)' % (
       report.estimate, report.conf_interval_low, report.conf_interval_up))
 
 # iroas=1.60, ci=(1.52, 1.66)
-```
 
+```
 
 ## References
 

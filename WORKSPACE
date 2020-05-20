@@ -71,7 +71,19 @@ python_configure(name = "local_config_python")
 # ======== Python libraries ========
 #
 
-# Six (Python3 compatibility) library
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "rules_python",
+    remote = "https://github.com/oapio/rules_python.git",
+    branch = "master"
+)
+load("@rules_python//python:repositories.bzl", "py_repositories")
+py_repositories()
+
+load("@rules_python//python:pip.bzl", "pip_repositories")
+pip_repositories()
+
 http_archive(
     name = "six_archive",
     build_file = "@//:external/BUILD.six",
@@ -82,6 +94,14 @@ http_archive(
         "https://pypi.python.org/packages/source/s/six/six-1.12.0.tar.gz",  # 2018-12-10
     ],
 )
+ 
+load("@rules_python//python:pip.bzl", "pip3_import")
+pip3_import(
+   name = "my_deps",
+   requirements = "//:requirements.txt",
+)
+load("@my_deps//:requirements.bzl", "pip_install")
+pip_install()
 
 # Abseil python library
 http_archive(

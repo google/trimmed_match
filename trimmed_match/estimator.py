@@ -25,7 +25,6 @@ import numpy as np
 
 from trimmed_match.core.python import estimator_ext
 
-
 # A class to report the Trimmed Match estimator for a fixed trim rate:
 # trim_rate: float
 # iroas: float
@@ -57,7 +56,7 @@ class Report:
   conf_interval_up: float
   epsilons: List[float]
   trimmed_pairs_indices: Set[int]
-  candidate_results: List[TrimAndError]
+  candidate_results: List["TrimAndError"]
 
   def __str__(self) -> str:
     """Returns a humanized textual representation of the object."""

@@ -31,11 +31,7 @@ PROJECT_NAME = 'trimmed_match'
 
 REQUIRED_PACKAGES = [
     'absl-py',
-    'matplotlib',
     'numpy>=1.8.0rc1',
-    'pandas',
-    'seaborn',
-    'setuptools',
     'six>=1.4.1',
 ]
 
@@ -44,13 +40,7 @@ WORKSPACE_PYTHON_HEADERS_PATTERN = re.compile(
 
 IS_WINDOWS = sys.platform.startswith('win')
 
-environment_variable_name = 'PYTHON_BIN_PATH'
-environment_variable_value = os.environ.get(environment_variable_name, None)
-
-if environment_variable_value is None:
-  sys.stderr.write("Using '%s=%s' environment variable!\n" %
-                   (environment_variable_name, environment_variable_value))
-
+DEFAULT_PYTHON_BIN_PATH = '/usr/bin/python3'
 
 class BazelExtension(setuptools.Extension):
   """A C/C++ extension that is defined as a Bazel BUILD target."""
@@ -107,6 +97,9 @@ class BuildBazelExtension(build_ext.build_ext):
       os.makedirs(ext_dest_dir)
     shutil.copyfile(ext_bazel_bin_path, ext_dest_path)
 
+if 'PYTHON_BIN_PATH' not in os.environ:
+  os.environ['PYTHON_BIN_PATH'] = DEFAULT_PYTHON_BIN_PATH
+
 setuptools.setup(
     name=PROJECT_NAME,
     version=__version__,
@@ -120,4 +113,4 @@ setuptools.setup(
     cmdclass=dict(build_ext=BuildBazelExtension),
     packages=setuptools.find_packages(),
     install_requires=REQUIRED_PACKAGES,
-    python_requires='>=3.7')
+    python_requires='>=3.6')

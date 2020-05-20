@@ -6,6 +6,8 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+load("@my_deps//:requirements.bzl", "requirement")
+
 py_library(
     name = "trimmed_match_post_analysis",
     srcs = [
@@ -13,6 +15,7 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
+        requirement("pandas"),
         "//trimmed_match:estimator",
         "//trimmed_match/design:util",
     ],
@@ -27,6 +30,8 @@ py_test(
     python_version = "PY3",
     deps = [
         ":trimmed_match_post_analysis",
+        requirement("numpy"),
+        requirement("pandas"),
         "//trimmed_match:estimator",
         "//trimmed_match/design:plot_utilities",
     ],
