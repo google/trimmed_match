@@ -41,7 +41,8 @@ class ConstructPotentialOutcomesTest(unittest.TestCase):
 
   def testGoDark(self):
     potential_outcomes = matched_pairs_rmse._construct_potential_outcomes(
-        GeoXType.GO_DARK, self._geox_eval_data, self._budget,
+        GeoXType.GO_DARK, self._geox_eval_data,
+        (self._budget * 2.0 / self._geox_eval_data.spend.sum()),
         self._hypothesized_iroas)
     expected = {
         1:
@@ -57,7 +58,8 @@ class ConstructPotentialOutcomesTest(unittest.TestCase):
 
   def testHeavyUp(self):
     potential_outcomes = matched_pairs_rmse._construct_potential_outcomes(
-        GeoXType.HEAVY_UP, self._geox_eval_data, self._budget,
+        GeoXType.HEAVY_UP, self._geox_eval_data,
+        (self._budget * 2.0 / self._geox_eval_data.spend.sum()),
         self._hypothesized_iroas)
     expected = {
         1:
@@ -89,7 +91,8 @@ class ConstructPotentialOutcomesTest(unittest.TestCase):
 
   def testHoldBack(self):
     potential_outcomes = matched_pairs_rmse._construct_potential_outcomes(
-        GeoXType.HOLD_BACK, self._geox_eval_data, self._budget,
+        GeoXType.HOLD_BACK, self._geox_eval_data,
+        (self._budget * 2.0 / self._geox_eval_data.spend.sum()),
         self._hypothesized_iroas)
     expected = {
         1:

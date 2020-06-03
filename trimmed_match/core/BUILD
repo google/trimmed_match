@@ -6,8 +6,6 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-load("@my_deps//:requirements.bzl", "requirement")
-
 cc_library(
     name = "estimator",
     srcs = ["estimator.cc"],
@@ -15,9 +13,6 @@ cc_library(
     deps = [
         ":geox_data_util",
         ":math_util",
-        "@boost//:lexical_cast",
-        "@boost//:math",
-        "@boost//:multiprecision",
         "@com_google_absl//absl/types:optional",
         "@glog",
     ],

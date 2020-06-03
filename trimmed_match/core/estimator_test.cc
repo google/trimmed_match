@@ -134,7 +134,7 @@ TEST_F(EstimatorInternalTest, CalculateStandardErrorWithTrim) {
 TEST_F(EstimatorInternalTest, TrimmedMatch1NoTrim) {
   const Result expected = {
       1.692, 0.138, 0, 0.9, 1.250, 1.905, {{0, 1.692, 0.138}}};
-  const auto result = trimmed_match1_.Report(0.90, 0.0);
+  const auto result = trimmed_match1_.Report(1.64485363, 0.0);
 
   CompareReports(expected, result, 0.001);
 }
@@ -142,7 +142,7 @@ TEST_F(EstimatorInternalTest, TrimmedMatch1NoTrim) {
 TEST_F(EstimatorInternalTest, TrimmedMatch1WithTrim) {
   const Result expected = {
       1.571, 0.041, 0.25, 0.9, -29.375, 1.619, {{0.25, 1.571, 0.041}}};
-  const auto result = trimmed_match1_.Report(0.90, 0.25);
+  const auto result = trimmed_match1_.Report(1.64485363, 0.25);
 
   CompareReports(expected, result, 0.001);
 }
@@ -155,7 +155,7 @@ TEST_F(EstimatorInternalTest, TrimmedMatch2NoTrim) {
                            0.005233,
                            0.006389,
                            {{0, 0.005811, 0.000117}}};
-  const auto result = trimmed_match2_.Report(0.90, 0.0);
+  const auto result = trimmed_match2_.Report(1.64485363, 0.0);
 
   CompareReports(expected, result);
 }
@@ -168,7 +168,7 @@ TEST_F(EstimatorInternalTest, TrimmedMatch2WithTrim) {
                            0.005155,
                            0.006475,
                            {{0.03125, 0.005815, 0.000134}}};
-  const auto result = trimmed_match2_.Report(0.90, 1.0 / 32);
+  const auto result = trimmed_match2_.Report(1.64485363, 1.0 / 32);
 
   CompareReports(expected, result);
 }
@@ -183,7 +183,7 @@ TEST_F(EstimatorInternalTest, TrimmedMatch2WithOptimTrim) {
 
   const Result expected = {0.005833, 0.00003,  0.1875,    0.9,
                            0.005684, 0.005982, candidates};
-  const auto result = trimmed_match2_.Report(0.90, -1);
+  const auto result = trimmed_match2_.Report(1.64485363, -1);
 
   CompareReports(expected, result);
 }

@@ -6,17 +6,12 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-load("@my_deps//:requirements.bzl", "requirement")
-
 py_library(
     name = "common_classes",
     srcs = [
         "common_classes.py",
     ],
     srcs_version = "PY3",
-    deps = [
-        requirement("pandas"),
-    ],
 )
 
 py_library(
@@ -29,10 +24,6 @@ py_library(
         ":common_classes",
         ":matched_pairs_rmse",
         ":plot_utilities",
-        requirement("matplotlib"),
-        requirement("numpy"),
-        requirement("pandas"),
-        requirement("seaborn"),
     ],
 )
 
@@ -44,9 +35,6 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":common_classes",
-        requirement("numpy"),
-        requirement("pandas"),
-        requirement("six"),
         "//trimmed_match:estimator",
     ],
 )
@@ -60,10 +48,6 @@ py_library(
     deps = [
         ":common_classes",
         ":util",
-        requirement("matplotlib"),
-        requirement("numpy"),
-        requirement("pandas"),
-        requirement("seaborn"),
     ],
 )
 
@@ -73,10 +57,7 @@ py_library(
         "util.py",
     ],
     srcs_version = "PY3",
-    deps = [
-        requirement("numpy"),
-        requirement("pandas"),
-    ],
+    deps = [":common_classes"],
 )
 
 py_test(
@@ -86,10 +67,7 @@ py_test(
         "tests/common_classes_test.py",
     ],
     python_version = "PY3",
-    deps = [
-        ":common_classes",
-        requirement("pandas"),
-    ],
+    deps = [":common_classes"],
 )
 
 py_test(
@@ -102,7 +80,6 @@ py_test(
     deps = [
         ":common_classes",
         ":matched_pairs_rmse",
-        requirement("pandas"),
     ],
 )
 
@@ -117,8 +94,6 @@ py_test(
         ":common_classes",
         ":matched_pairs_rmse",
         ":trimmed_match_design",
-        requirement("matplotlib"),
-        requirement("pandas"),
     ],
 )
 
@@ -129,5 +104,8 @@ py_test(
         "tests/util_test.py",
     ],
     python_version = "PY3",
-    deps = [":util"],
+    deps = [
+        ":common_classes",
+        ":util",
+    ],
 )

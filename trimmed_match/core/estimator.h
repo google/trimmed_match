@@ -41,7 +41,8 @@ struct Result {
   double estimate;           // Point estimate
   double std_error;          // Standard error of the point estimate
   double trim_rate;          // Trim rate learned from data
-  double confidence;         // Confidence level
+  double normal_quantile;    // Normal quantile at (.5 + .5 * confidence), where
+                             // confidence is the level of 2-sided conf interval
   double conf_interval_low;  // Confidence interval lower bound
   double conf_interval_up;   // Confidence interval upper bound
 
@@ -81,8 +82,10 @@ class TrimmedMatch {
   // trim rate such that its corresponding std.error is less than
   // (1 + 0.25 / sqrt(num of pairs)) * minimum std.error.
   // Otherwise, report the result for the given trim rate.
-  // Confidence is the level of confidence interval.
-  Result Report(double confidence = 0.80, double trim_rate = -1.0) const;
+  // Normal_quantile is by default the 90% normal percentile, which corresponds
+  // to 80% 2-sided confidence interval.
+  Result Report(double normal_quantile = 1.281551566,
+                double trim_rate = -1.0) const;
 
  private:
   const double max_trim_rate_;

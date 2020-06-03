@@ -30,17 +30,13 @@ __version__ = '1.0.0'
 PROJECT_NAME = 'trimmed_match'
 
 REQUIRED_PACKAGES = [
-    'absl-py',
-    'numpy>=1.8.0rc1',
-    'six>=1.4.1',
+    'absl-py', 'numpy>=1.8.0rc1', 'pandas', 'matplotlib', 'scipy', 'seaborn'
 ]
 
 WORKSPACE_PYTHON_HEADERS_PATTERN = re.compile(
     r'(?<=path = ").*(?=",  # May be overwritten by setup\.py\.)')
 
 IS_WINDOWS = sys.platform.startswith('win')
-
-DEFAULT_PYTHON_BIN_PATH = '/usr/bin/python3'
 
 class BazelExtension(setuptools.Extension):
   """A C/C++ extension that is defined as a Bazel BUILD target."""
@@ -98,7 +94,7 @@ class BuildBazelExtension(build_ext.build_ext):
     shutil.copyfile(ext_bazel_bin_path, ext_dest_path)
 
 if 'PYTHON_BIN_PATH' not in os.environ:
-  os.environ['PYTHON_BIN_PATH'] = DEFAULT_PYTHON_BIN_PATH
+  os.environ['PYTHON_BIN_PATH'] = sys.executable
 
 setuptools.setup(
     name=PROJECT_NAME,

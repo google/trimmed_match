@@ -27,7 +27,6 @@
 
 #include "glog/logging.h"
 #include "absl/types/optional.h"
-#include "boost/math/distributions/students_t.hpp"
 #include "trimmed_match/core/geox_data_util.h"
 #include "trimmed_match/core/math_util.h"
 
@@ -151,7 +150,7 @@ double TrimmedMatch::CalculateStandardError(const double trim_rate,
   return std::sqrt(approx_variance / num_pairs_);
 }
 
-Result TrimmedMatch::Report(const double confidence,
+Result TrimmedMatch::Report(const double normal_quantile,
                             const double trim_rate) const {
   TrimAndError result;
   std::vector<TrimAndError> candidate_results;
@@ -193,18 +192,22 @@ Result TrimmedMatch::Report(const double confidence,
   }
 
   // Confidence interval.
-  boost::math::normal dist(0.0, 1.0);
-  const double q = boost::math::quantile(dist, 0.5 + 0.5 * confidence);
-  std::pair<double, double> ci =
-      geox_util_->RangeFromStudentizedTrimmedMean(result.trim_rate, q);
+  std::pair<double, double> ci = geox_util_->RangeFromStudentizedTrimmedMean(
+      result.trim_rate, normal_quantile);
 
   if (ci.second - ci.first > kExtremeCiWidth * result.std_error) {
-    ci.first = result.iroas - result.std_error * q * kNormalMultiplier;
-    ci.second = result.iroas + result.std_error * q * kNormalMultiplier;
+    const double width = result.std_error * normal_quantile * kNormalMultiplier;
+    ci.first = result.iroas - width;
+    ci.second = result.iroas + width;
   }
 
-  return {result.iroas, result.std_error, result.trim_rate, confidence,
-          ci.first,     ci.second,        candidate_results};
+  return Result{.estimate = result.iroas,
+                .std_error = result.std_error,
+                .trim_rate = result.trim_rate,
+                .normal_quantile = normal_quantile,
+                .conf_interval_low = ci.first,
+                .conf_interval_up = ci.second,
+                .candidate_results = candidate_results};
 }
 
 }  // namespace trimmedmatch

@@ -18,6 +18,7 @@
 See the tech details in https://ai.google/research/pubs/pub48448/.
 """
 
+from scipy import stats
 from typing import List, Set
 
 import dataclasses
@@ -137,7 +138,7 @@ class TrimmedMatch(object):
     if (confidence <= 0.0) | (confidence > 1.0):
       raise ValueError("Confidence is outside of (0, 1]")
 
-    output = self._tm.Report(confidence, trim_rate)
+    output = self._tm.Report(stats.norm.ppf(0.5 + 0.5 * confidence), trim_rate)
     epsilons = self._CalculateEpsilons(output.estimate)
     temp = np.array(epsilons).argsort()
     ranks = np.empty_like(temp)
@@ -149,6 +150,5 @@ class TrimmedMatch(object):
         if (ranks[i] < left_trim) or (ranks[i] > num_pairs - left_trim - 1)
     ])
     return Report(output.estimate, output.std_error, output.trim_rate,
-                  output.confidence, output.conf_interval_low,
-                  output.conf_interval_up, epsilons, trimmed_pairs_indices,
-                  output.candidate_results)
+                  confidence, output.conf_interval_low, output.conf_interval_up,
+                  epsilons, trimmed_pairs_indices, output.candidate_results)

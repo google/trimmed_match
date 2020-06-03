@@ -21,7 +21,6 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
-from six.moves import range
 
 from trimmed_match.design import common_classes
 from trimmed_match import estimator
@@ -36,7 +35,8 @@ _MAX_TRIM_RATE_FOR_RMSE_EVAL = 0.10
 
 
 def _construct_potential_outcomes(
-    geox_type: GeoXType, geo_eval_data: pd.DataFrame, budget: float,
+    geox_type: GeoXType, geo_eval_data: pd.DataFrame,
+    incremental_spend_ratio: float,
     hypothesized_iroas: float) -> Dict[int, GeoLevelPotentialOutcomes]:
   """Construct two potential outcomes for each geo based on GeoXType.
 
@@ -45,13 +45,13 @@ def _construct_potential_outcomes(
   Args:
     geox_type: GeoXType.
     geo_eval_data: pd.DataFrame with columns (geo, response, spend).
-    budget: float.
+    incremental_spend_ratio: float, the value multiplied by pretest spend
+      to obtain incremental spend.
     hypothesized_iroas: float.
 
   Returns:
     Dict[int, GeoLevelPotentialOutcomes], map from geo to potential outcomes.
   """
-  incremental_spend_ratio = (budget * 2.0 / geo_eval_data.spend.sum())
   potential_outcomes = {}
   for _, row in geo_eval_data.iterrows():
     spend_in_control = row.spend
@@ -139,7 +139,9 @@ class MatchedPairsRMSE(object):
     self._hypothesized_iroas = hypothesized_iroas
     self._base_seed = base_seed
     self._potential_outcomes = _construct_potential_outcomes(
-        geox_type, sorted_geo_pairs_eval_data, budget, hypothesized_iroas)
+        geox_type, sorted_geo_pairs_eval_data,
+        (budget * 2.0 / sorted_geo_pairs_eval_data.spend.sum()),
+        hypothesized_iroas)
     self._paired_geos = {}
     for _, row in sorted_geo_pairs_eval_data.iterrows():
       if row.pair not in self._paired_geos:

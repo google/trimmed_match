@@ -18,7 +18,7 @@ This directory contains
 
 ## Installation
 
-Our current version has been tested with python 3.7 in Linux. The code may be incompatible with Python 3.6 or lower versions.
+Our current version has been tested with Python 3.7 in Linux. The code may be incompatible with Python 3.6 or lower versions.
 
 ### Prerequisites
 
@@ -31,34 +31,36 @@ Our current version has been tested with python 3.7 in Linux. The code may be in
   * The build tool `bazel`: Installation instructions can be found at
   https://github.com/bazelbuild/bazel.
 
-### Trimmed Match can be installed using `setuptools`
+### Trimmed Match can be installed using `setuptools` and `pip`
 
 First clone from github:
 
 ```shell
 git clone https://github.com/google/trimmed_match
-cd trimmed_match
 ```
 
-If your Python 3 interpreter is not `/usr/bin/python3`, set the environment variable `PYTHON_BIN_PATH` to point to it, for example:
-
-```shell
-export PYTHON_BIN_PATH=`which python3`
-```
-
-Then build and install the extension using the supplied `setup.py` file and `setuptools`.
+Then build and install the extension using the supplied `setup.py` file and `setuptools` and `pip`.
 
 ```
-python3 setup.py install --user
+python3 -m pip install ./trimmed_match
 ```
 
-This will automatically build the extension using `bazel`. 
+This will automatically build the extension using `bazel`.
 
 You can run the unit tests using:
 
 ```
-bazel test //...:all
+cd trimmed_match
+PYTHON_BIN_PATH=`which python3` bazel test //...:all
 
+```
+Note that unit tests require package dependencies to be installed.
+This automatically happens when the package is installed as above using `pip`.
+Otherwise, the dependencies can be installed manually using the following
+command:
+
+```
+python3 -m pip install absl-py matplotlib numpy pandas seaborn scipy
 ```
 
 ## Usage
@@ -93,7 +95,6 @@ print('iroas=%.2f, ci=(%.2f, %.2f)' % (
       report.estimate, report.conf_interval_low, report.conf_interval_up))
 
 # iroas=1.60, ci=(1.52, 1.66)
-
 ```
 
 ## References

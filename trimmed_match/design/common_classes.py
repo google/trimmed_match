@@ -48,8 +48,8 @@ class TimeWindow(object):
   """Defines a time window using first day and last day."""
 
   def __init__(self, first_day: pd.Timestamp, last_day: pd.Timestamp):
-    if first_day >= last_day:
-      raise ValueError("TimeWindow(): first_day >= last_day: {!r}, {!r}".format(
+    if first_day > last_day:
+      raise ValueError("TimeWindow(): first_day > last_day: {!r}, {!r}".format(
           first_day, last_day))
     self.first_day = first_day
     self.last_day = last_day

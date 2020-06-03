@@ -34,7 +34,7 @@ PYBIND11_MODULE(estimator_ext, m) {
       .def_readwrite("estimate", &Result::estimate)
       .def_readwrite("std_error", &Result::std_error)
       .def_readwrite("trim_rate", &Result::trim_rate)
-      .def_readwrite("confidence", &Result::confidence)
+      .def_readwrite("normal_quantile", &Result::normal_quantile)
       .def_readwrite("conf_interval_low", &Result::conf_interval_low)
       .def_readwrite("conf_interval_up", &Result::conf_interval_up)
       .def_readwrite("candidate_results", &Result::candidate_results);

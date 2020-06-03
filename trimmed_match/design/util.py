@@ -20,34 +20,60 @@ import datetime
 from typing import List
 import numpy as np
 import pandas as pd
+from trimmed_match.design import common_classes
+
+TimeWindow = common_classes.TimeWindow
 
 
 def find_days_to_exclude(
-    day_week_exclude: List[str]) -> List['datetime.datetime']:
-  """Return a list of dates to exclude from a list of days and weeks.
+    dates_to_exclude: List[str]) -> List[TimeWindow]:
+  """Returns a list of time windows to exclude from a list of days and weeks.
 
   Args:
-    day_week_exclude: a List of strings with format indicating a single day as
-    '20200101' (YYYYMMDD) or an entire week as '202010' (YYYYWW). A week starts
-    on a Monday and ends on a Sunday.
+    dates_to_exclude: a List of strings with format indicating a single day as
+    '2020/01/01' (YYYY/MM/DD) or an entire time period as
+    '2020/01/01 - 2020/02/01' (indicating start and end date of the time period)
 
   Returns:
-    days_exclude: a List of datetime.datetime days to obtained by expanding the
+    days_exclude: a List of TimeWindows obtained from the
       list in input.
-
   """
   days_exclude = []
-  for x in day_week_exclude:
-    if len(x) == 8:
-      days_exclude += [datetime.datetime.strptime(x, '%Y%m%d')]
-    elif len(x) == 6:
-      start = datetime.datetime.strptime(x[:4] + '-W' + x[4:] + '-1',
-                                         '%G-W%V-%u')
-      for i in range(7):
-        days_exclude += [start + datetime.timedelta(days=i)]
+  for x in dates_to_exclude:
+    tmp = x.split('-')
+    if len(tmp) == 1:
+      try:
+        days_exclude.append(
+            TimeWindow(pd.Timestamp(tmp[0]), pd.Timestamp(tmp[0])))
+      except ValueError:
+        raise ValueError(f'Cannot convert the string {tmp[0]} to a valid date.')
+    elif len(tmp) == 2:
+      try:
+        days_exclude.append(
+            TimeWindow(pd.Timestamp(tmp[0]), pd.Timestamp(tmp[1])))
+      except ValueError:
+        raise ValueError(
+            f'Cannot convert the strings in {tmp} to a valid date.')
     else:
-      raise ValueError(f"""The elements of the list should have format "YYYYWW"
-                       or "YYYYMMDD", got {x}""")
+      raise ValueError(f'The input {tmp} cannot be interpreted as a single' +
+                       ' day or a time window')
+
+  return days_exclude
+
+
+def expand_time_windows(periods: List[TimeWindow]) -> List[pd.Timestamp]:
+  """Return a list of days to exclude from a list of TimeWindows.
+
+  Args:
+    periods: List of time windows (first day, last day).
+
+  Returns:
+    days_exclude: a List of obtained by expanding the list in input.
+  """
+  days_exclude = []
+  for window in periods:
+    days_exclude += pd.date_range(window.first_day, window.last_day, freq='D')
+
   return list(set(days_exclude))
 
 

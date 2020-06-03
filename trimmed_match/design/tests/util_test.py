@@ -15,46 +15,57 @@
 
 """Tests for trimmed_match.design.tests.util."""
 
-import datetime
 import numpy as np
 import pandas as pd
 
+from trimmed_match.design import common_classes
 from trimmed_match.design import util
 import unittest
+
+TimeWindow = common_classes.TimeWindow
 
 
 class UtilTest(unittest.TestCase):
 
   def testFindDaysToExclude(self):
     day_week_exclude = [
-        '202010', '202011', '202013', '20200810', '20200814'
-    ]
+        '2020/10/10', '2020/11/10-2020/12/10', '2020/08/10']
     days_to_remove = util.find_days_to_exclude(day_week_exclude)
-    temp_days = ['2020-03-02', '2020-03-03', '2020-03-04', '2020-03-05',
-                 '2020-03-06', '2020-03-07', '2020-03-08', '2020-03-09',
-                 '2020-03-10', '2020-03-11', '2020-03-12', '2020-03-13',
-                 '2020-03-14', '2020-03-15', '2020-03-23', '2020-03-24',
-                 '2020-03-25', '2020-03-26', '2020-03-27', '2020-03-28',
-                 '2020-03-29', '2020-08-10', '2020-08-14']
     expected_days = [
-        datetime.datetime.strptime(x, '%Y-%m-%d') for x in temp_days
+        TimeWindow(pd.Timestamp('2020-10-10'), pd.Timestamp('2020-10-10')),
+        TimeWindow(pd.Timestamp('2020-11-10'), pd.Timestamp('2020-12-10')),
+        TimeWindow(pd.Timestamp('2020-08-10'), pd.Timestamp('2020-08-10')),
     ]
-    self.assertCountEqual(days_to_remove, expected_days)
-
-  def testNoDuplicateDays(self):
-    day_week_exclude = ['202010', '20200303']
-    days_to_remove = util.find_days_to_exclude(day_week_exclude)
-    temp_days = ['2020-03-02', '2020-03-03', '2020-03-04', '2020-03-05',
-                 '2020-03-06', '2020-03-07', '2020-03-08']
-    expected_days = [
-        datetime.datetime.strptime(x, '%Y-%m-%d') for x in temp_days
-    ]
-    self.assertCountEqual(days_to_remove, expected_days)
+    for x in range(len(expected_days)):
+      self.assertEqual(days_to_remove[x].first_day, expected_days[x].first_day)
+      self.assertEqual(days_to_remove[x].last_day, expected_days[x].last_day)
 
   def testWrongDateFormat(self):
-    day_week_exclude = ['202010', '2020-03-03']
+    incorrect_day = ['2020/13/13', '2020/03/03']
     with self.assertRaises(ValueError):
-      util.find_days_to_exclude(day_week_exclude)
+      util.find_days_to_exclude(incorrect_day)
+
+    incorrect_time_window = ['2020/10/13 - 2020/13/11', '2020/03/03']
+    with self.assertRaises(ValueError):
+      util.find_days_to_exclude(incorrect_time_window)
+
+    incorrect_format = ['2020/10/13 - 2020/13/11 . 2020/10/10']
+    with self.assertRaises(ValueError):
+      util.find_days_to_exclude(incorrect_format)
+
+  def testExpandTimeWindows(self):
+    day_week_exclude = [
+        '2020/10/10', '2020/11/10-2020/12/10', '2020/08/10']
+    days_to_remove = util.find_days_to_exclude(day_week_exclude)
+    periods = util.expand_time_windows(days_to_remove)
+    expected = [
+        pd.Timestamp('2020-10-10', freq='D'),
+        pd.Timestamp('2020-08-10', freq='D'),
+    ]
+    expected += pd.date_range(start='2020-11-10', end='2020-12-10', freq='D')
+    self.assertEqual(len(periods), len(expected))
+    for x in periods:
+      self.assertIn(x, expected)
 
   def testCheckNoOverlap(self):
     expected = 0.0
