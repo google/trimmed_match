@@ -19,11 +19,11 @@ Example usage:
   import pandas as pd
   geox_type = GeoXType.HEAVY_UP
   pretest_data = pd.DataFrame(data={
-    'date': ['2019-01-01', '2019-03-01', '2019-01-01', '2019-03-01'],
-    'geo': [1, 1, 2, 2],
-    'sales': [1.0, 2.0, 3.0, 4.0],
-    'cost': [1.0, 2.0, 3.0, 4.0],
-    'transactions': [1, 2, 3, 4]})
+    'date': ['2019-01-01'] * 20 + ['2019-03-01'] * 20,
+    'geo': [1, 2] * 20,
+    'sales': range(40),
+    'cost': range(40),
+    'transactions': range(40)})
   response = 'sales'
   spend_proxy = 'cost'
   matching_metrics = {'sales': 1.0, 'transactions': 1.0, 'cost': 0.01}
@@ -32,13 +32,13 @@ Example usage:
 
   # Create candidate designs
   tmd = trimmed_match_design.TrimmedMatchGeoXDesign(
-    geox_type, pretest_data, response, matching_metrics,
+    geox_type, pretest_data, response, spend_proxy, matching_metrics,
     time_window_for_design, time_window_for_eval)
-  use_cross_validation = True
   budget_list = [1.0, 2.0]
   iroas_list = [0.0, 1.0, 2.0, 3.0]
+  num_pairs_filtered_list = range(10)
   candidate_designs = tmd.report_candidate_designs(budget_list, iroas_list,
-    spend_proxy, use_cross_validation)
+    num_pairs_filtered_list)
 """
 
 from typing import Dict, List, Tuple
@@ -50,10 +50,12 @@ import pandas as pd
 import seaborn as sns
 
 from trimmed_match.design import common_classes
+from trimmed_match.design import geo_assignment
 from trimmed_match.design import matched_pairs_rmse
 from trimmed_match.design import plot_utilities
 
 # Minimum number of geo pairs.
+_DEFAULT_CONFIDENCE_LEVEL = 0.8
 _MIN_NUM_PAIRS = 10
 
 TimeWindow = common_classes.TimeWindow
@@ -64,47 +66,89 @@ MatchedPairsRMSE = matched_pairs_rmse.MatchedPairsRMSE
 class TrimmedMatchGeoXDesign(object):
   """A class to create a randomized geo experimental design using Trimmed Match."""
 
-  def __init__(self, geox_type: GeoXType, pretest_data: pd.DataFrame,
-               response: str, matching_metrics: Dict[str, float],
+  def __init__(self,
+               geox_type: GeoXType,
+               pretest_data: pd.DataFrame,
                time_window_for_design: TimeWindow,
-               time_window_for_eval: TimeWindow):
+               time_window_for_eval: TimeWindow,
+               response: str = 'response',
+               spend_proxy: str = 'spend',
+               matching_metrics=None):
     """Initializes TrimmedMatchGeoXDesign.
 
     Args:
       geox_type: str, type of the experiment. See supported values in GeoXType.
       pretest_data: pd.DataFrame (date, geo, ...).
-      response: str, a column name in pretest_data.
-      matching_metrics: dict, mapping a column name to a numeric weight.
       time_window_for_design: TimeWindow, representing the time period of
         pretest data used for the design (training + eval).
       time_window_for_eval: TimeWindow, representing the time period of pretest
         data used for evaluation of RMSE in estimating iROAS.
+      response: str, a column name in pretest_data, by default 'response'.
+      spend_proxy: str, a column name in pretest_data, by default 'spend'.
+      matching_metrics: dict, mapping a column name to a numeric weight.
 
     Raises:
-      KeyError: geox_type is not one of supported types.
+      ValueError: response or spend_proxy is not in pretest_data.
       ValueError: number of geos in pretest_data is not even.
+      ValueError: unable to convert either column response or spend_proxy to
+                  numeric.
     """
+    if response not in pretest_data.columns:
+      raise ValueError(f'{response} is not available in pretest_data.')
+    if spend_proxy not in pretest_data.columns:
+      raise ValueError(f'{spend_proxy} is not available in pretest_data.')
     if pretest_data['geo'].nunique() % 2 != 0:
       raise ValueError(
-          f'The number of geos must be even, but got {pretest_data.geo.nunique()}.'
-      )
+          f'Number of geos must be even, but got {pretest_data.geo.nunique()}.')
+    if matching_metrics is None:
+      matching_metrics = {response: 1.0, spend_proxy: 0.01}
+
     self._geox_type = geox_type
     self._pretest_data = pretest_data.copy()
     self._response = response
-    self._matching_metrics = matching_metrics
+    self._spend_proxy = spend_proxy
+    for metric in [self._response, spend_proxy]:
+      try:
+        self._pretest_data[metric] = pd.to_numeric(self._pretest_data[metric])
+      except:
+        raise ValueError(f'Unable to convert column {metric} to numeric.')
+
+    self._matching_metrics = matching_metrics.copy()
+    if self._response not in self._matching_metrics:
+      self._matching_metrics[self._response] = 0.0
+    if self._spend_proxy not in self._matching_metrics:
+      self._matching_metrics[self._spend_proxy] = 0.0
+
     self._time_window_for_design = time_window_for_design
     self._time_window_for_eval = time_window_for_eval
     self._pairs = None
-    self._spend_proxy = None
     self._geo_level_eval_data = None
     self._num_pairs_filtered = 0
 
-  def _create_geo_pairs(self, spend_proxy: str,
+  def _create_sign_test_data(self) -> pd.DataFrame:
+    """Creates sign test data based on latest pretest data.
+
+    Returns:
+      pd.DataFrame with columns (geo, response, spend), where response and
+      spend are geo-level overall values for the most recent time period of the
+      same duration as self._time_window_for_eval.
+    """
+    available_dates = self._pretest_data['date'].drop_duplicates().sort_values(
+        ascending=False)
+    eval_duration = available_dates.between(
+        self._time_window_for_eval.first_day,
+        self._time_window_for_eval.last_day).sum()
+    latest_data = self._pretest_data[self._pretest_data['date'].isin(
+        available_dates[:eval_duration])]
+
+    return latest_data.groupby(
+        by='geo', as_index=False)[[self._response, self._spend_proxy]].sum()
+
+  def _create_geo_pairs(self,
                         use_cross_validation: bool = True) -> pd.DataFrame:
     """Creates geo pairs using pretest data and data to evaluate the RMSE.
 
     Args:
-      spend_proxy: str, a column name in pretest_data.
       use_cross_validation: bool, if True then geo pairing uses pretest data
         during time_window_for_design but not during time_window_for_eval,
         otherwise geo pairing uses pretest data during time_window_for_design
@@ -116,23 +160,18 @@ class TrimmedMatchGeoXDesign(object):
       pair)
         for evaluation of the RMSE.
     """
-    pretest = self._pretest_data.copy()
-    self._spend_proxy = spend_proxy
     training_and_evaluation = (
-        pretest['date'] >= self._time_window_for_design.first_day) & (
-            pretest['date'] <= self._time_window_for_design.last_day) | (
-                pretest['date'] >= self._time_window_for_eval.first_day) & (
-                    pretest['date'] <= self._time_window_for_eval.last_day)
-    pretest = pretest[training_and_evaluation]
-    pretest['period'] = (
-        pretest['date'] >= self._time_window_for_eval.first_day) & (
-            pretest['date'] <= self._time_window_for_eval.last_day)
-    pretest['period'] = pretest['period'].astype(int)
+        self._pretest_data['date'].between(
+            self._time_window_for_design.first_day,
+            self._time_window_for_design.last_day)
+        | self._pretest_data['date'].between(
+            self._time_window_for_eval.first_day,
+            self._time_window_for_eval.last_day))
+    pretest = self._pretest_data[training_and_evaluation]
+    pretest['period'] = (pretest['date'].between(
+        self._time_window_for_eval.first_day,
+        self._time_window_for_eval.last_day)).astype(int)
 
-    if self._response not in self._matching_metrics:
-      self._matching_metrics[self._response] = 0
-    if spend_proxy not in self._matching_metrics:
-      self._matching_metrics[spend_proxy] = 0
     for metric in self._matching_metrics:
       if use_cross_validation:
         pretest['training_' +
@@ -146,7 +185,8 @@ class TrimmedMatchGeoXDesign(object):
     pretest = pretest.groupby('geo', as_index=False).sum()
     pretest['rankscore'] = 0
     for metric, weight in self._matching_metrics.items():
-      pretest['rankscore'] += weight * pretest['training_' + metric]
+      pretest['rankscore'] += weight * (
+          pretest['training_' + metric] / sum(pretest['training_' + metric]))
 
     geos_ordered = pretest.sort_values(
         ['rankscore', 'geo'], ascending=[False, True]).reset_index(drop=True)
@@ -163,32 +203,30 @@ class TrimmedMatchGeoXDesign(object):
 
     geopairs_left = geopairs_left.assign(dist=dist)
     geopairs_right = geopairs_right.assign(dist=dist)
-    pairs = pd.DataFrame({
+    pairs = (pd.DataFrame({
         'geo1': geopairs_left['geo'],
         'geo2': geopairs_right['geo'],
         'distance': geopairs_left['dist']
-    })
-
-    pairs = pairs.sort_values(
-        by=['distance', 'geo1'], ascending=[False, True]).reset_index(drop=True)
+    }).sort_values(by=['distance', 'geo1'],
+                   ascending=[False, True])).reset_index(drop=True)
     npairs = geopairs_left.shape[0]
     pairs['pair'] = range(1, npairs + 1)
 
     geo_to_pair = pd.DataFrame({
         'geo': pairs['geo1'].tolist() + pairs['geo2'].tolist(),
-        'pair': pairs['pair'].tolist() + pairs['pair'].tolist()})
+        'pair': pairs['pair'].tolist() + pairs['pair'].tolist()
+    })
 
-    geo_level_eval_data = pd.merge(geos_ordered, geo_to_pair, on='geo')
-    geo_level_eval_data = geo_level_eval_data[[
-        'geo', 'pair', 'evaluation_' + self._response,
-        'evaluation_' + spend_proxy
-    ]]
-    geo_level_eval_data.rename(
-        columns={
+    geo_level_eval_data = pd.merge(
+        geos_ordered[[
+            'geo', 'evaluation_' + self._response,
+            'evaluation_' + self._spend_proxy
+        ]],
+        geo_to_pair,
+        on='geo').rename(columns={
             'evaluation_' + self._response: 'response',
-            'evaluation_' + spend_proxy: 'spend'
-        }, inplace=True)
-    geo_level_eval_data.sort_values(by='pair', inplace=True)
+            'evaluation_' + self._spend_proxy: 'spend'
+        }).sort_values(by='pair')
 
     return (pairs, geo_level_eval_data)
 
@@ -196,7 +234,6 @@ class TrimmedMatchGeoXDesign(object):
       self,
       budget_list: List[float],
       iroas_list: List[float],
-      spend_proxy: str,
       num_pairs_filtered_list: List[int],
       use_cross_validation: bool = True,
       num_simulations=200,
@@ -207,7 +244,6 @@ class TrimmedMatchGeoXDesign(object):
     Args:
       budget_list: list of floats.
       iroas_list: list of floats.
-      spend_proxy: str, a column name in pretest_data.
       num_pairs_filtered_list: list of int, used to filter pairs up to each
         element of num_pairs_filter.
       use_cross_validation: bool, same as in create_geo_pairs().
@@ -230,8 +266,7 @@ class TrimmedMatchGeoXDesign(object):
         pd.DataFrames have columns (simulation, estimate, trim_rate, std_error,
         conf_interval_low, conf_interval_up, ci_level).
     """
-    pairs, geo_level_eval_data = self._create_geo_pairs(
-        spend_proxy, use_cross_validation)
+    pairs, geo_level_eval_data = self._create_geo_pairs(use_cross_validation)
     self._pairs = pairs
     self._geo_level_eval_data = geo_level_eval_data
     max_num_pairs_to_filter = len(pairs.index) - _MIN_NUM_PAIRS
@@ -322,13 +357,17 @@ class TrimmedMatchGeoXDesign(object):
 
     return axes_dict
 
-  def output_chosen_design(self, num_pairs_filtered: int,
-                           base_seed: int) -> np.ndarray:
+  def output_chosen_design(
+      self,
+      num_pairs_filtered: int,
+      base_seed: int,
+      confidence: float = _DEFAULT_CONFIDENCE_LEVEL) -> np.ndarray:
     """Plot the comparison between treatment and control of a candidate design.
 
     Args:
       num_pairs_filtered: int, number of pairs to filter from the experiment.
       base_seed: seed for the random number generator.
+      confidence: float in (0, 1), confidence level for 2-sided CI.
 
     Returns:
       axes_dict: a dictionary with keys (budget, iroas) with the plot of the
@@ -336,14 +375,27 @@ class TrimmedMatchGeoXDesign(object):
         function of the number of excluded pairs.
     """
     self._num_pairs_filtered = num_pairs_filtered
-    self._geo_level_eval_data['assignment'] = 0
-    npairs = len(self._pairs.index)
-    np.random.seed(base_seed)
-    random_assignment = np.random.uniform(-1, 1, npairs) > 0
-    treat = [2 * x for x in range(npairs)] + random_assignment
+    sign_data = self._create_sign_test_data().rename(columns={
+        self._response: 'response',
+        self._spend_proxy: 'spend'
+    })
+    sign_test_data = pd.merge(
+        sign_data,
+        self._geo_level_eval_data[['geo', 'pair']],
+        on='geo')
+    aa_test_data = self._geo_level_eval_data.copy()
 
-    self._geo_level_eval_data.loc[self._geo_level_eval_data.index.isin(treat),
-                                  'assignment'] = 1
+    np.random.seed(base_seed)
+    assignment = geo_assignment.generate_balanced_random_assignment(
+        sign_test_data[sign_test_data['pair'] > num_pairs_filtered],
+        aa_test_data[aa_test_data['pair'] > num_pairs_filtered], confidence)
+    self._geo_level_eval_data = self._geo_level_eval_data[[
+        'geo', 'pair', 'response', 'spend'
+    ]].merge(
+        assignment, on=['geo', 'pair'], how='left')
+
+    self._geo_level_eval_data['assignment'] = pd.to_numeric(
+        self._geo_level_eval_data['assignment'], errors='coerce')
 
     axes = plot_utilities.output_chosen_design(
         self._pretest_data, self._geo_level_eval_data, self._response,

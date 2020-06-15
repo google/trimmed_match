@@ -15,6 +15,15 @@ py_library(
 )
 
 py_library(
+    name = "geo_assignment",
+    srcs = [
+        "geo_assignment.py",
+    ],
+    srcs_version = "PY3",
+    deps = ["//trimmed_match:estimator"],
+)
+
+py_library(
     name = "trimmed_match_design",
     srcs = [
         "trimmed_match_design.py",
@@ -22,6 +31,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":common_classes",
+        ":geo_assignment",
         ":matched_pairs_rmse",
         ":plot_utilities",
     ],
@@ -68,6 +78,19 @@ py_test(
     ],
     python_version = "PY3",
     deps = [":common_classes"],
+)
+
+py_test(
+    name = "geo_assignment_test",
+    size = "small",
+    srcs = [
+        "tests/geo_assignment_test.py",
+    ],
+    python_version = "PY3",
+    deps = [
+        ":geo_assignment",
+        "//trimmed_match:estimator",
+    ],
 )
 
 py_test(

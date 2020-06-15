@@ -14,14 +14,14 @@
 # ============================================================================
 """Install script for setuptools."""
 
-import fnmatch
+from distutils import sysconfig
+
 import os
 import posixpath
 import re
 import shutil
 import sys
 
-from distutils import sysconfig
 import setuptools
 from setuptools.command import build_ext
 
@@ -37,6 +37,7 @@ WORKSPACE_PYTHON_HEADERS_PATTERN = re.compile(
     r'(?<=path = ").*(?=",  # May be overwritten by setup\.py\.)')
 
 IS_WINDOWS = sys.platform.startswith('win')
+
 
 class BazelExtension(setuptools.Extension):
   """A C/C++ extension that is defined as a Bazel BUILD target."""

@@ -244,9 +244,8 @@ def plot_paired_comparison(
 
   temporary = pretest_data[pretest_data['geo'].isin(
       experiment_geo_list)]
-  temporary = temporary[
-      (temporary['date'] >= time_window_for_design.first_day)
-      & (temporary['date'] <= time_window_for_design.last_day)]
+  temporary = temporary[temporary['date'].between(
+      time_window_for_design.first_day, time_window_for_design.last_day)]
   data_to_plot = pd.merge(
       temporary,
       geos_in_experiment[['geo', 'pair', 'assignment']],

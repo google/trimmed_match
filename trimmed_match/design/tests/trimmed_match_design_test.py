@@ -66,10 +66,76 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     self.test_class = TrimmedMatchGeoXDesign(
         GeoXType.HEAVY_UP,
         pretest_data=self.test_data,
-        response='response',
-        matching_metrics={'response': 1.0},
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0})
+
+  def testMatchingMetrics(self):
+    self.assertDictEqual(self.test_class._matching_metrics, {
+        'response': 1.0,
+        'spend': 0.0,
+    })
+    default_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.test_data,
         time_window_for_design=self.design_window,
         time_window_for_eval=self.evaluation_window)
+    self.assertDictEqual(default_class._matching_metrics, {
+        'response': 1.0,
+        'spend': 0.01,
+    })
+
+  def testMissingResponseVariable(self):
+    with self.assertRaises(ValueError):
+      _ = TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          response='revenue',
+          matching_metrics={'response': 1.0})
+
+  def testMissingSpendProxy(self):
+    with self.assertRaises(ValueError):
+      _ = TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          spend_proxy='cost',
+          matching_metrics={'response': 1.0})
+
+  def testInvalidResponseVariable(self):
+    with self.assertRaises(ValueError):
+      _ = TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          response='unknown',
+          matching_metrics={'response': 1.0})
+
+  def testInvalidSpendProxy(self):
+    with self.assertRaises(ValueError):
+      _ = TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          spend_proxy='unknown',
+          matching_metrics={'response': 1.0})
+
+  def testInvalidValues(self):
+    pretest_data = self.test_data.copy()
+    pretest_data['revenue'] = [1, 2, 3, 4, 5, 6, 7, 'nan']
+    with self.assertRaises(ValueError):
+      _ = TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=pretest_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          response='revenue',
+          matching_metrics={'response': 1.0})
 
   def testOddNumberOfGeos(self):
     add_geo = pd.DataFrame({
@@ -84,21 +150,29 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     pretest_data = pd.concat(
         [self.test_class._pretest_data, add_geo], sort=False)
     with self.assertRaises(ValueError):
-      TrimmedMatchGeoXDesign(
+      _ = TrimmedMatchGeoXDesign(
           GeoXType.HEAVY_UP,
           pretest_data=pretest_data,
-          response='response',
-          matching_metrics={'response': 1.0},
           time_window_for_design=self.design_window,
-          time_window_for_eval=self.evaluation_window)
+          time_window_for_eval=self.evaluation_window,
+          matching_metrics={'response': 1.0})
+
+  def testCreateSignTestData(self):
+    expected = pd.DataFrame({
+        'geo': [1, 2, 3, 4],
+        'response': [2, 5, 2, 4],
+        'spend': [1.5, 2.5, 1.5, 6.0]
+    })
+    result = self.test_class._create_sign_test_data()
+    self.assertTrue(result.equals(expected))
 
   def testCreateGeoPairsNoCV(self):
     pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
-        spend_proxy='spend', use_cross_validation=False)
+        use_cross_validation=False)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.equals(
+        geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [1, 2, 1, 2],
@@ -116,11 +190,11 @@ class TrimmedMatchDesignTest(unittest.TestCase):
 
   def testCreateGeoPairsCV(self):
     pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
-        spend_proxy='spend', use_cross_validation=True)
+        use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.equals(
+        geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [2, 1, 2, 1],
@@ -149,12 +223,12 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     self.test_class._pretest_data = pd.concat(
         [self.test_class._pretest_data, add_geo], sort=False)
     pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
-        spend_proxy='spend', use_cross_validation=True)
+        use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
     pairs = pairs.round({'distance': 5})
     self.assertTrue(
-        geo_level_eval_data.equals(
+        geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4, 5, 6],
                 'pair': [3, 1, 3, 1, 2, 2],
@@ -173,11 +247,11 @@ class TrimmedMatchDesignTest(unittest.TestCase):
   def testCreateGeoPairsMatchingMetric(self):
     self.test_class._matching_metrics = {'response': 1.0, 'spend': 0.5}
     pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
-        spend_proxy='spend', use_cross_validation=True)
+        use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.equals(
+        geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [2, 1, 2, 1],
@@ -194,13 +268,17 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             })))
 
   def testCreateGeoPairsMatchingMetricUserDistance(self):
-    self.test_class._matching_metrics = {'metric': 1.0}
+    self.test_class._matching_metrics = {
+        'metric': 1.0,
+        'response': 0,
+        'spend': 0
+    }
     pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
-        spend_proxy='spend', use_cross_validation=True)
+        use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.equals(
+        geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [1, 1, 2, 2],
@@ -229,7 +307,6 @@ class TrimmedMatchDesignTest(unittest.TestCase):
       (results, detailed_results) = self.test_class.report_candidate_designs(
           budget_list=[30, 40],
           iroas_list=[0, 2],
-          spend_proxy='spend',
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
           num_simulations=1000)
@@ -258,7 +335,6 @@ class TrimmedMatchDesignTest(unittest.TestCase):
       self.test_class.report_candidate_designs(
           budget_list=[30, 40],
           iroas_list=[0, 2],
-          spend_proxy='spend',
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
           num_simulations=1000)
@@ -278,7 +354,6 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     results, _ = self.test_class.report_candidate_designs(
         budget_list=budget_list,
         iroas_list=iroas_list,
-        spend_proxy='spend',
         use_cross_validation=True,
         num_pairs_filtered_list=[0, 1],
         num_simulations=100)

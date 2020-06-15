@@ -41,8 +41,12 @@ PYBIND11_MODULE(estimator_ext, m) {
 
   py::class_<TrimmedMatch>(m, "TrimmedMatch")
       .def(py::init<const std::vector<double>&, const std::vector<double>&,
-                    const double>())
-      .def("Report", &TrimmedMatch::Report);
+                    const double>(),
+           py::arg("delta_response"), py::arg("delta_cost"),
+           py::arg("max_trim_rate") = 0.25)
+      .def("Report", &TrimmedMatch::Report,
+           py::arg("normal_quantile") = 1.281551566,
+           py::arg("trim_rate") = -1.0);
 }
 
 }  // namespace trimmedmatch

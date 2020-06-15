@@ -53,7 +53,7 @@ def prepare_data_for_post_analysis(geox_data: pd.DataFrame,
     geo_data = geox_data[geox_data['period'].isin([1, 2])].copy()
 
   grouped_data = geo_data.groupby(['pair', 'assignment'],
-                                  as_index=False)['response', 'cost'].sum()
+                                  as_index=False)[['response', 'cost']].sum()
 
   grouped_data.sort_values(by='pair', inplace=True)
 
@@ -122,21 +122,25 @@ def calculate_experiment_results(
   return results
 
 
-def report_experiment_results(results: TrimmedMatchResults):
+def report_experiment_results(results: TrimmedMatchResults,
+                              average_order_value: float):
   """Report the results of Trimmed Match.
 
   Args:
     results: output of the function calculate_experiment_results with fields
       data, report, trimmed_pairs, incremental_cost, lift, treatment_response.
-
+    average_order_value: value used to convert transactions/visits to the
+      "sales scale".
   """
   fit = results.report
   print('Summary of the results for the iROAS:\n\n')
   print('estimate\t std. error\t trim_rate\t ci_level\t confidence interval')
   print(
       '{:.3f}\t\t {:.3f}\t\t {:.2f}\t\t {:.2f}\t\t [{:.3f}, {:.3f}]\n\n'.format(
-          fit.estimate, fit.std_error, fit.trim_rate, fit.confidence,
-          fit.conf_interval_low, fit.conf_interval_up))
+          fit.estimate * average_order_value,
+          fit.std_error * average_order_value, fit.trim_rate, fit.confidence,
+          fit.conf_interval_low * average_order_value,
+          fit.conf_interval_up * average_order_value))
 
   print('cost = {}'.format(
       util.human_readable_number(results.incremental_cost)))

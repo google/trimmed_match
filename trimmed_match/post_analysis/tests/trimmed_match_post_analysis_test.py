@@ -127,7 +127,7 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         self.data, max_trim_rate=0.25, confidence=0.9, trim_rate=-1)
     with mock.patch(
         'builtins.print', autospec=True, side_effect=print) as mock_print:
-      trimmed_match_post_analysis.report_experiment_results(results)
+      trimmed_match_post_analysis.report_experiment_results(results, 1)
 
       self.assertEqual(mock_print.call_args_list[0][0][0],
                        'Summary of the results for the iROAS:\n\n')

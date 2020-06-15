@@ -18,12 +18,11 @@
 See the tech details in https://ai.google/research/pubs/pub48448/.
 """
 
-from scipy import stats
 from typing import List, Set
 
 import dataclasses
 import numpy as np
-
+from scipy import stats
 from trimmed_match.core.python import estimator_ext
 
 # A class to report the Trimmed Match estimator for a fixed trim rate:
