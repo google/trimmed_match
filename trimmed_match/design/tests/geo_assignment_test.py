@@ -14,12 +14,13 @@
 # ============================================================================
 
 """Tests for trimmed_match.design.tests.util."""
+from absl.testing import absltest
+from absl.testing import parameterized
 
 import numpy as np
 import pandas as pd
 
 from trimmed_match.design import geo_assignment
-import unittest
 
 sign_test = geo_assignment._binomial_sign_test
 iroas_test = geo_assignment._trimmed_match_aa_test
@@ -28,7 +29,7 @@ generate_paired_assignment = geo_assignment._generate_random_paired_assignment
 calculate_paired_difference = geo_assignment._calculate_paired_difference
 
 
-class TestSupportingFunctions(unittest.TestCase):
+class TestSupportingFunctions(parameterized.TestCase):
 
   def testBinomialSignAaTest(self):
     self.assertTrue(sign_test([-1, -1, 1], 0.6))
@@ -46,26 +47,15 @@ class TestSupportingFunctions(unittest.TestCase):
     for i in range(10):
       self.assertEqual(assignment[2 * i] + assignment[2 * i + 1], 1)
 
-  def testCalculatePairedDifferenceValueError(self):
-    # assignment: not bool, not 1-dim, or odd length
+  @parameterized.parameters(
+      (np.array([1, 2]), np.array([True, True])),
+      (np.array([1, 2]), np.array([1.0, 0.0])),
+      (np.array([1, 2]), np.array([[True], [False]])),
+      (np.array([1, 2]), np.array([True, True, False])),
+      (np.array([1, 2, 3]), np.array([0, 1], dtype=bool)))
+  def testCalculatePairedDifferenceValueError(self, geo_values, assignment):
     with self.assertRaises(ValueError):
-      _ = calculate_paired_difference(np.array([1, 2]), np.array([True, True]))
-
-    with self.assertRaises(ValueError):
-      _ = calculate_paired_difference(np.array([1, 2]), np.array([1.0, 0.0]))
-
-    with self.assertRaises(ValueError):
-      _ = calculate_paired_difference(
-          np.array([1, 2]), np.array([[True], [False]]))
-
-    with self.assertRaises(ValueError):
-      _ = calculate_paired_difference(
-          np.array([1, 2]), np.array([True, True, False]))
-
-    # geo_values and assignment differ in shapes
-    with self.assertRaises(ValueError):
-      _ = calculate_paired_difference(
-          np.array([1, 2, 3]), np.array([0, 1], dtype=bool))
+      calculate_paired_difference(geo_values, assignment)
 
   def testCalculatePairedDifferenceSuccess(self):
     geo_values = np.array([1, 2, 3, 4])
@@ -74,7 +64,7 @@ class TestSupportingFunctions(unittest.TestCase):
     np.testing.assert_array_equal(result, np.array([-1, -1]))
 
 
-class GeoAssignmentTest(unittest.TestCase):
+class GeoAssignmentTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -132,7 +122,7 @@ class GeoAssignmentTest(unittest.TestCase):
     self.assertTrue(
         sign_test(
             calculate_paired_difference(
-                np.array(self._sign_test_data['response']), assignment), 0.8))
+                np.array(self._sign_test_data['response']), assignment), 0.2))
 
     # passes trimmed match aa test
     delta_responses = calculate_paired_difference(
@@ -143,4 +133,4 @@ class GeoAssignmentTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

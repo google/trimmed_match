@@ -131,7 +131,8 @@ def _calculate_paired_difference(geo_values: np.array,
 def generate_balanced_random_assignment(
     sign_test_data: pd.DataFrame,
     aa_test_data: pd.DataFrame,
-    confidence: float = 0.80) -> pd.DataFrame:
+    sign_test_confidence: float = 0.20,
+    aa_test_confidence: float = 0.80) -> pd.DataFrame:
   """Geo assignment for matched pairs that passes balance tests.
 
   Two balance tests: sign test where the number of positive pairs is about half
@@ -142,7 +143,10 @@ def generate_balanced_random_assignment(
     sign_test_data: same as aa_test_data, but for Binomial sign test.
     aa_test_data: pd.DataFrame with columns (geo, pair, response, spend), for
       testing whetherTrimmed Match CI covers 0.
-    confidence: float in (0, 1), confidence level for a 2-sided conf. interval.
+    sign_test_confidence: float in (0, 1), confidence level for a 2-sided sign
+      test; the smaller this value, the closer the number of positive pairs and
+      the number of negative pairs.
+    aa_test_confidence: same as sign_test_confidence, but for the aa test.
 
   Returns:
     pd.DataFrame with columns (geo, pair, assignment), where assignment is bool.
@@ -178,7 +182,7 @@ def generate_balanced_random_assignment(
     # binomial sign test
     delta_responses = _calculate_paired_difference(
         np.array(sign_data['response']), geo_assignment)
-    if not _binomial_sign_test(delta_responses, confidence):
+    if not _binomial_sign_test(delta_responses, sign_test_confidence):
       continue
 
     # trimmed match aa test
@@ -186,7 +190,8 @@ def generate_balanced_random_assignment(
         np.array(aa_data['response']), geo_assignment)
     delta_spends = _calculate_paired_difference(
         np.array(aa_data['spend']), geo_assignment)
-    if _trimmed_match_aa_test(delta_responses, delta_spends, confidence):
+    if _trimmed_match_aa_test(delta_responses, delta_spends,
+                              aa_test_confidence):
       break
 
     if iter_num > _MAX_RANDOM_ASSIGNMENTS:

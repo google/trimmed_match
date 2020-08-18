@@ -8,13 +8,13 @@ This is not an officially supported Google product. For research purposes only.
 
 ## Description
 
-How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. In order to address these technical issues, Trimmed Match (Chen & Au, 2019) has recently been developed to improve existing methodologies in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
+How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. Trimmed Match (Chen & Au, 2019) has recently been developed in order to address these technical issues in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
 
-This directory contains
+This version contains
 
   * C++ core library and Python wrapper for Trimmed Match, and
-  * Python package for geox design using Trimmed Match and Cross Validation.
-  * (TBD) Colab demos for trimmed match design and post analysis, separately.
+  * Python package for geo experimental design (preliminary version) using Trimmed Match and Cross Validation.
+  * Corresponding colab demos for post analysis and experimental design, separately.
 
 ## Installation
 
@@ -66,12 +66,12 @@ python3 -m pip install absl-py matplotlib numpy pandas seaborn scipy
 ## Usage
 
 Without programming, the best way to learn how to use the package is to follow one of the
-notebooks (<span style="color:blue">to be added</span>), and the recommended way of opening them is Google `Colab`.
+notebooks, and the recommended way of opening them is Google `Colab`.
 
- * Design a matched pairs geo experiment.
-    - [GeoX Design with Trimmed Match and Cross Validation](./notebooks/design_colab_for_trimmed_match.ipynb)
  * Post analysis of a geo experiment from a matched pairs design
-    - [GeoX Post Analysis with Trimmed Match](./notebooks/post_analysis_colab_for_trimmed_match.ipynb)
+    - [GeoX Post Analysis with Trimmed Match](https://colab.sandbox.google.com/github/google/trimmed_match/blob/master/trimmed_match/notebook/post_analysis_colab_for_trimmed_match.ipynb)
+ * Design a matched pairs geo experiment (preliminary version)
+    - [GeoX Design with Trimmed Match and Cross Validation](https://colab.sandbox.google.com/github/google/trimmed_match/blob/master/trimmed_match/notebook/design_colab_for_trimmed_match.ipynb)
 
 
 With Python programming, here is a toy example.
@@ -121,3 +121,4 @@ updates, you may want to subscribe to our
 * Aiyou Chen
 * Marco Longfils
 * Christoph Best
+

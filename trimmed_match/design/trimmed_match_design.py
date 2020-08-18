@@ -144,8 +144,9 @@ class TrimmedMatchGeoXDesign(object):
     return latest_data.groupby(
         by='geo', as_index=False)[[self._response, self._spend_proxy]].sum()
 
-  def _create_geo_pairs(self,
-                        use_cross_validation: bool = True) -> pd.DataFrame:
+  def _create_geo_pairs(
+      self,
+      use_cross_validation: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Creates geo pairs using pretest data and data to evaluate the RMSE.
 
     Args:
@@ -388,7 +389,8 @@ class TrimmedMatchGeoXDesign(object):
     np.random.seed(base_seed)
     assignment = geo_assignment.generate_balanced_random_assignment(
         sign_test_data[sign_test_data['pair'] > num_pairs_filtered],
-        aa_test_data[aa_test_data['pair'] > num_pairs_filtered], confidence)
+        aa_test_data[aa_test_data['pair'] > num_pairs_filtered], confidence,
+        confidence)
     self._geo_level_eval_data = self._geo_level_eval_data[[
         'geo', 'pair', 'response', 'spend'
     ]].merge(
