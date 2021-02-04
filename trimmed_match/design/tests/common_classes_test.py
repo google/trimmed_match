@@ -24,6 +24,7 @@ GeoXType = common_classes.GeoXType
 GeoLevelData = common_classes.GeoLevelData
 GeoLevelPotentialOutcomes = common_classes.GeoLevelPotentialOutcomes
 TimeWindow = common_classes.TimeWindow
+FormatOptions = common_classes.FormatOptions
 
 
 class CommonClassesTest(unittest.TestCase):
@@ -33,13 +34,14 @@ class CommonClassesTest(unittest.TestCase):
     self._geox_outcome = GeoLevelData(1, 1.0, 2.0)
     self._potential_outcomes = GeoLevelPotentialOutcomes(
         GeoLevelData(1, 1.0, 2.0), GeoLevelData(1, 3.0, 4.0))
-    self._t1 = pd.Timestamp("2019-01-01")
-    self._t2 = pd.Timestamp("2020-01-01")
+    self._t1 = '2019-01-01'
+    self._t2 = '2020-01-01'
 
   def testGeoXType(self):
-    for x in ["CONTROL", "GO_DARK", "HEAVY_UP", "HEAVY_DOWN", "HOLD_BACK"]:
+    for x in ['CONTROL', 'GO_DARK', 'HEAVY_UP', 'HEAVY_DOWN', 'HOLD_BACK']:
       self.assertIn(x, GeoXType.__members__)
-    self.assertNotIn("go-dark", GeoXType.__members__)
+    self.assertNotIn('go-dark', GeoXType.__members__)
+    self.assertEqual(GeoXType['GO_DARK'], GeoXType.GO_DARK)
 
   def testGeoLevelData(self):
     self.assertEqual(1.0, self._geox_outcome.response)
@@ -53,9 +55,50 @@ class CommonClassesTest(unittest.TestCase):
 
   def testTimeWindow(self):
     result1 = TimeWindow(self._t1, self._t2)
-    self.assertEqual(self._t1, result1.first_day)
-    self.assertEqual(self._t2, result1.last_day)
+    dates = pd.to_datetime(
+        pd.Series([
+            '2019-09-01', '2019-10-01', '2019-11-01', '2019-12-01',
+            '2020-01-01', '2020-01-01', '2020-02-01', '2020-03-01'
+        ]))
+    is_contained = pd.Series([True, True, True, True, True, True, False, False])
+    latest_dates = pd.to_datetime(
+        pd.Series([
+            '2020-03-01', '2020-02-01', '2020-01-01', '2019-12-01', '2019-11-01'
+        ]))
+    self.assertEqual(pd.Timestamp(self._t1), result1.first_day)
+    self.assertEqual(pd.Timestamp(self._t2), result1.last_day)
+    self.assertTrue(result1.contains(dates).equals(is_contained))
+    self.assertTrue(
+        result1.finds_latest_date_moving_window_in(dates).reset_index(
+            drop=True).equals(latest_dates))
+    with self.assertRaises(ValueError):
+      result1.finds_latest_date_moving_window_in(
+          pd.to_datetime(pd.Series(['2020-02-01', '2020-03-01'])))
+    self.assertTrue(
+        result1.is_included_in(
+            TimeWindow(pd.Timestamp('2018-10-01'), pd.Timestamp('2021-12-01'))))
+    self.assertFalse(
+        result1.is_included_in(
+            TimeWindow(pd.Timestamp('2019-10-01'), pd.Timestamp('2021-12-01'))))
+
+  def testFormatOptions(self):
+    # checks the correct initialization of the class.
+    options = FormatOptions(
+        column='Minimum detectable lift in response',
+        function=pd.to_numeric,
+        args={
+            'value': 3.0,
+            'operation': '>'
+        })
+    self.assertEqual(options.column, 'Minimum detectable lift in response')
+    self.assertEqual(options.function, pd.to_numeric)
+    self.assertDictEqual(
+        options.args, {
+            'value': 3.0,
+            'operation': '>',
+            'subset': 'Minimum detectable lift in response'
+        })
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   unittest.main()

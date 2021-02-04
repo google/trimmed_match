@@ -14,7 +14,6 @@
 # ============================================================================
 
 """Module to evaluate root mean square error (RMSE) from matched pairs."""
-
 from typing import Dict
 from typing import List
 from typing import Tuple
@@ -22,8 +21,8 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from trimmed_match.design import common_classes
 from trimmed_match import estimator
+from trimmed_match.design import common_classes
 
 GeoLevelData = common_classes.GeoLevelData
 GeoXType = common_classes.GeoXType
@@ -57,7 +56,11 @@ def _construct_potential_outcomes(
     spend_in_control = row.spend
     incremental_spend = row.spend * incremental_spend_ratio
     if geox_type == GeoXType.GO_DARK:
-      incremental_spend = -row.spend
+      # Sometimes we use a spend proxy, which may have a different scale, so
+      # the level of spend in control should be rescaled according to
+      # incremental_spend_ratio.
+      spend_in_control = incremental_spend
+      incremental_spend = -incremental_spend
       spend_in_treatment = 0.0
     elif geox_type == GeoXType.HOLD_BACK:
       # Recall that a proxy cost is used for HOLD_BACK.
@@ -107,7 +110,7 @@ class MatchedPairsRMSE(object):
     hypothesized_iroas = 1
     mpr = MatchedPairsRMSE(geox_type, geo_pairs_eval_data, budget,
     hypothesized_iroas)
-    rmse = mpr.report(num_simulations=1000, max_trim_rate=0.10)
+    rmse, detailed_result = mpr.report(num_simulations=1000, max_trim_rate=0.10)
   """
 
   def __init__(self,
@@ -192,20 +195,34 @@ class MatchedPairsRMSE(object):
       detailed_results: a list of estimator.TrimmedMatch elements, one for each
         simulation. Each element contains the fields: estimate, std_error,
         conf_interval_low, conf_interval_up, trim_rate, ci_level.
+
+    Raises:
+      ValueError: if trim_rate is greater than max_trim_rate or
+                  if max_trim_rate is outside [0, 0.5].
     """
+    if trim_rate > max_trim_rate:
+      raise ValueError(f"trim_rate {trim_rate} is greater than max_trim_rate "
+                       f"which is {max_trim_rate}.")
+    if max_trim_rate < 0 or max_trim_rate >= 0.5:
+      raise ValueError("max_trim_rate must be in [0, 0.5), but got "
+                       f"{max_trim_rate}.")
+
     point_estimates = np.zeros(num_simulations)
     detailed_results = []
     for index in range(num_simulations):
       geox_data = self._simulate_geox_data(index)
+      pairs = list(geox_data.keys())
       delta_response = [
-          v.treated.response - v.controlled.response
-          for v in geox_data.values()
+          geox_data[pair].treated.response - geox_data[pair].controlled.response
+          for pair in pairs
       ]
       delta_spend = [
-          v.treated.spend - v.controlled.spend for v in geox_data.values()
+          geox_data[pair].treated.spend - geox_data[pair].controlled.spend
+          for pair in pairs
       ]
       fit = estimator.TrimmedMatch(delta_response, delta_spend, max_trim_rate)
       report = fit.Report(trim_rate=trim_rate)
+      trimmed_pairs = [pairs[i] for i in report.trimmed_pairs_indices]
       detailed_results.append({
           "simulation": index,
           "estimate": report.estimate,
@@ -213,7 +230,8 @@ class MatchedPairsRMSE(object):
           "trim_rate": report.trim_rate,
           "ci_level": report.confidence,
           "conf_interval_low": report.conf_interval_low,
-          "conf_interval_up": report.conf_interval_up
+          "conf_interval_up": report.conf_interval_up,
+          "trimmed_pairs": trimmed_pairs,
       })
       point_estimates[index] = report.estimate
     rmse = np.sqrt(np.mean((point_estimates - self._hypothesized_iroas)**2))

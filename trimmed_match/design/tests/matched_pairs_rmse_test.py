@@ -14,7 +14,7 @@
 # ============================================================================
 # Lint: python3
 """Tests for ads.amt.geox.trimmed_match.design."""
-
+from absl.testing import parameterized
 import pandas as pd
 
 from trimmed_match.design import common_classes
@@ -47,11 +47,11 @@ class ConstructPotentialOutcomesTest(unittest.TestCase):
     expected = {
         1:
             GeoLevelPotentialOutcomes(
-                controlled=GeoLevelData(geo=1, response=10, spend=10),
+                controlled=GeoLevelData(geo=1, response=10, spend=20),
                 treated=GeoLevelData(geo=1, response=0, spend=0)),
         2:
             GeoLevelPotentialOutcomes(
-                controlled=GeoLevelData(geo=2, response=20, spend=20),
+                controlled=GeoLevelData(geo=2, response=20, spend=40),
                 treated=GeoLevelData(geo=2, response=0, spend=0))
     }
     self.assertDictEqual(expected, potential_outcomes)
@@ -131,6 +131,12 @@ class MatchedPairsRMSETest(unittest.TestCase):
         "response": [10, 20, 30, 40],
         "spend": [10, 20, 30, 40]
     })
+    self._perfect_geo_pairs_eval_data = pd.DataFrame({
+        "geo": [1, 2, 3, 4],
+        "pair": [1, 1, 2, 2],
+        "response": [10, 10, 30, 30],
+        "spend": [10, 10, 30, 30]
+    })
     self._budget = 10
     self._hypothesized_iroas = 1
 
@@ -169,10 +175,23 @@ class MatchedPairsRMSETest(unittest.TestCase):
         self.AssertEqualGeoLevelData(treatment_geo_outcome, value.treated)
         self.AssertEqualGeoLevelData(control_geo_outcome, value.controlled)
 
-  def testReportPerfect(self):
+  def testReportValueError(self):
+    mpr = MatchedPairsRMSE(
+        GeoXType.HOLD_BACK,
+        self._geo_pairs_eval_data,
+        self._budget,
+        self._hypothesized_iroas,
+        base_seed=1000)
+
+    @parameterized.parameters((-0.1, -0.2), (0.5, 0.1), (0.25, 0.3))
+    def _(self, max_trim_rate, trim_rate):
+      with self.assertRaises(ValueError):
+        mpr.report(1, max_trim_rate, trim_rate)
+
+  def testReportPerfectiROAS(self):
     """Checks the calculation with zero RMSE."""
     for geox_type in GeoXType:
-      if geox_type in [GeoXType.HOLD_BACK, GeoXType.CONTROL]:
+      if geox_type in [GeoXType.HOLD_BACK, GeoXType.CONTROL, GeoXType.GO_DARK]:
         continue
       mpr = MatchedPairsRMSE(
           geox_type,
@@ -181,6 +200,20 @@ class MatchedPairsRMSETest(unittest.TestCase):
           self._hypothesized_iroas,
           base_seed=1000)
       (report, _) = mpr.report(num_simulations=100, trim_rate=0.0)
+      self.assertEqual(0.0, report)
+
+  def testReportPerfectPairs(self):
+    """Checks the calculation with perfect pairs."""
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+      mpr = MatchedPairsRMSE(
+          geox_type,
+          self._perfect_geo_pairs_eval_data,
+          self._budget,
+          0.0,
+          base_seed=1000)
+      report, _ = mpr.report(num_simulations=100, trim_rate=0.0)
       self.assertEqual(0.0, report)
 
   def testReportNoisy(self):
@@ -193,6 +226,38 @@ class MatchedPairsRMSETest(unittest.TestCase):
         base_seed=100000)
     (report, _) = mpr.report(num_simulations=100, trim_rate=0.0)
     self.assertAlmostEqual(1.5, report, delta=0.1)
+
+  def testReportTrimmedPairs(self):
+    """Checks the reported trimmed pairs in a simulation."""
+    dataframe = pd.DataFrame({
+        "geo": [1, 2, 3, 4, 5, 6, 7, 8],
+        "response": [10, 11, 20, 30, 30, 33, 40, 48],
+        "spend": [1.0, 2.0, 3.0, 7.0, 3.0, 5.0, 4.0, 9.0],
+        "pair": [1, 1, 2, 2, 3, 3, 4, 4],
+    })
+    base_seed = 1000
+    trimmed_pairs = {
+        GeoXType.GO_DARK: [2, 3],
+        GeoXType.HOLD_BACK: [2, 3],
+        GeoXType.HEAVY_UP: [3, 4],
+        GeoXType.HEAVY_DOWN: [3, 4]
+    }
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+      mpr = MatchedPairsRMSE(
+          geox_type=geox_type,
+          geo_pairs_eval_data=dataframe,
+          budget=1.0,
+          hypothesized_iroas=0.0,
+          base_seed=base_seed)
+      _, report = mpr.report(num_simulations=1, trim_rate=0.0)
+      self.assertFalse(report.trimmed_pairs.values[0])
+      _, report = mpr.report(
+          num_simulations=1, trim_rate=0.25, max_trim_rate=0.25)
+
+      self.assertCountEqual(report.trimmed_pairs.values[0],
+                            trimmed_pairs[geox_type])
 
 
 if __name__ == "__main__":

@@ -22,11 +22,11 @@ import pandas as pd
 
 from trimmed_match.design import geo_assignment
 
-sign_test = geo_assignment._binomial_sign_test
-iroas_test = geo_assignment._trimmed_match_aa_test
+sign_test = geo_assignment.binomial_sign_test
+iroas_test = geo_assignment.trimmed_match_aa_test
 generate_assignment = geo_assignment.generate_balanced_random_assignment
 generate_paired_assignment = geo_assignment._generate_random_paired_assignment
-calculate_paired_difference = geo_assignment._calculate_paired_difference
+calculate_paired_difference = geo_assignment.calculate_paired_difference
 
 
 class TestSupportingFunctions(parameterized.TestCase):

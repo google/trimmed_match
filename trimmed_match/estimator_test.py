@@ -145,6 +145,14 @@ class EstimatorTest(absltest.TestCase):
     for i in range(0, len(expected)):
       self.assertAlmostEqual(expected[i], report.epsilons[i], places=3)
 
+  def testReporValueError(self):
+    tm = estimator.TrimmedMatch(self._delta_response, self._delta_cost, 0.25)
+
+    @parameterized.parameters((-0.1, 0.1), (1.1, 0.1), (0.8, 0.5))
+    def _(self, confidence, trim_rate):
+      with self.assertRaises(ValueError):
+        tm.Report(confidence, trim_rate)
+
   def testTrimmedMatchCase(self):
     """Tests with various trim rates."""
     tm = estimator.TrimmedMatch(self._delta_response, self._delta_cost, 0.25)

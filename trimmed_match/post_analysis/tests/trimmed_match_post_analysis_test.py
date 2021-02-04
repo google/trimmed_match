@@ -14,13 +14,13 @@
 # ============================================================================
 
 """Tests for trimmed_match_post_analysis."""
-
 import collections
 from unittest import mock
+
 import numpy as np
 import pandas as pd
-
 from trimmed_match.post_analysis import trimmed_match_post_analysis
+
 import unittest
 
 
@@ -57,6 +57,42 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
   def testPrepareDataTestOnly(self):
     dt = trimmed_match_post_analysis.prepare_data_for_post_analysis(
         self.test_data, exclude_cooldown=True)
+    self.assertTupleEqual(
+        dt, TrimmedMatchData(
+            pair=[1, 2],
+            treatment_response=[20, 40],
+            control_response=[10, 30],
+            treatment_cost=[2.0, 4.0],
+            control_cost=[1.0, 3.0],
+            epsilon=[],
+        ))
+
+  def testPrepareDataWithGroupNotation(self):
+    # change control to 1 and treatment to 2
+    self.test_data['assignment'] = self.test_data['assignment'] + 1
+    dt = trimmed_match_post_analysis.prepare_data_for_post_analysis(
+        self.test_data,
+        exclude_cooldown=True,
+        group_control=1,
+        group_treatment=2)
+    self.assertTupleEqual(
+        dt, TrimmedMatchData(
+            pair=[1, 2],
+            treatment_response=[20, 40],
+            control_response=[10, 30],
+            treatment_cost=[2.0, 4.0],
+            control_cost=[1.0, 3.0],
+            epsilon=[],
+        ))
+
+  def testPrepareDataWithInverseNotation(self):
+    # change control to 1 and treatment to 0
+    self.test_data['assignment'] = 1 - self.test_data['assignment']
+    dt = trimmed_match_post_analysis.prepare_data_for_post_analysis(
+        self.test_data,
+        exclude_cooldown=True,
+        group_control=1,
+        group_treatment=0)
     self.assertTupleEqual(
         dt, TrimmedMatchData(
             pair=[1, 2],
@@ -121,6 +157,62 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
     self.assertAlmostEqual(lift, results.lift, places=3)
     self.assertAlmostEqual(
         treatment_response, results.treatment_response, places=3)
+
+  def testUnequalGroupSizes(self):
+    temp_df = self.dataframe.copy()
+    # remove geo #2 which is in treatment
+    temp_df = temp_df[temp_df['geo'] != 2]
+    with self.assertRaisesRegex(ValueError,
+                                r'Some pairs do not have one geo for ' +
+                                r'each group.'):
+      trimmed_match_post_analysis.prepare_data_for_post_analysis(
+          temp_df, exclude_cooldown=True)
+
+    temp_df = self.dataframe.copy()
+    # remove geo #2 and #3 which are in control
+    temp_df = temp_df[~temp_df['geo'].isin([1, 3])]
+    with self.assertRaisesRegex(ValueError,
+                                r'Some pairs do not have one geo for ' +
+                                r'each group.'):
+      trimmed_match_post_analysis.prepare_data_for_post_analysis(
+          temp_df, exclude_cooldown=True)
+
+  def testGeosPerPair(self):
+    temp_df = self.dataframe.copy()
+    # reassigne geo #2 which is in treatment, and geo #3 which is control
+    temp_df.loc[temp_df['geo'] == 2, 'assignment'] = 0
+    temp_df.loc[temp_df['geo'] == 3, 'assignment'] = 1
+    with self.assertRaisesRegex(
+        ValueError, r'Some pairs do not have one geo for each group.'):
+      trimmed_match_post_analysis.prepare_data_for_post_analysis(
+          temp_df, exclude_cooldown=True)
+
+  def testManyGeosPerPairWithSameAssignment(self):
+    temp_df = self.dataframe.copy()
+    # add one additional geo to pairs #1 and #4
+    temp_df = temp_df.append(pd.DataFrame({
+        'geo': [9, 10],
+        'response': [10, 11],
+        'cost': [1.0, 2.0],
+        'pair': [1, 4],
+        'assignment': [0, 1],
+        'period': [1, 1],
+    }))
+    with self.assertRaisesRegex(
+        ValueError, r'Some pairs do not have one geo for each group.'):
+      trimmed_match_post_analysis.prepare_data_for_post_analysis(
+          temp_df, exclude_cooldown=True)
+
+  def testDuplicateGeo(self):
+    temp_df = self.dataframe.copy()
+    # change geo #4 to geo #2, so that geo #2 is duplicated
+    temp_df.loc[temp_df['geo'] == 4, 'geo'] = 2
+    # change geo #5 to geo #3, so that geo #3 is duplicated
+    temp_df.loc[temp_df['geo'] == 5, 'geo'] = 3
+    with self.assertRaisesRegex(
+        ValueError, r'Some geos are duplicated and appear in multiple pairs.'):
+      trimmed_match_post_analysis.prepare_data_for_post_analysis(
+          temp_df, exclude_cooldown=True)
 
   def testReportExperimentResults(self):
     results = trimmed_match_post_analysis.calculate_experiment_results(

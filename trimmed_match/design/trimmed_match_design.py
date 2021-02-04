@@ -57,6 +57,8 @@ from trimmed_match.design import plot_utilities
 # Minimum number of geo pairs.
 _DEFAULT_CONFIDENCE_LEVEL = 0.8
 _MIN_NUM_PAIRS = 10
+# Minimum total spend
+_SPEND_TOLERANCE = 1e-10
 
 TimeWindow = common_classes.TimeWindow
 GeoXType = common_classes.GeoXType
@@ -92,6 +94,7 @@ class TrimmedMatchGeoXDesign(object):
       ValueError: number of geos in pretest_data is not even.
       ValueError: unable to convert either column response or spend_proxy to
                   numeric.
+      ValueError: total spend_proxy is zero
     """
     if response not in pretest_data.columns:
       raise ValueError(f'{response} is not available in pretest_data.')
@@ -100,6 +103,10 @@ class TrimmedMatchGeoXDesign(object):
     if pretest_data['geo'].nunique() % 2 != 0:
       raise ValueError(
           f'Number of geos must be even, but got {pretest_data.geo.nunique()}.')
+    if pretest_data[spend_proxy].sum() < _SPEND_TOLERANCE:
+      raise ValueError(f'The column {spend_proxy} should have some positive ' +
+                       f'entries. The sum of {spend_proxy} found is ' +
+                       f'{pretest_data[spend_proxy].sum():.2f}')
     if matching_metrics is None:
       matching_metrics = {response: 1.0, spend_proxy: 0.01}
 
@@ -125,6 +132,14 @@ class TrimmedMatchGeoXDesign(object):
     self._geo_level_eval_data = None
     self._num_pairs_filtered = 0
 
+  @property
+  def pairs(self):
+    return self._pairs
+
+  @property
+  def geo_level_eval_data(self):
+    return self._geo_level_eval_data
+
   def _create_sign_test_data(self) -> pd.DataFrame:
     """Creates sign test data based on latest pretest data.
 
@@ -144,7 +159,7 @@ class TrimmedMatchGeoXDesign(object):
     return latest_data.groupby(
         by='geo', as_index=False)[[self._response, self._spend_proxy]].sum()
 
-  def _create_geo_pairs(
+  def create_geo_pairs(
       self,
       use_cross_validation: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Creates geo pairs using pretest data and data to evaluate the RMSE.
@@ -168,7 +183,7 @@ class TrimmedMatchGeoXDesign(object):
         | self._pretest_data['date'].between(
             self._time_window_for_eval.first_day,
             self._time_window_for_eval.last_day))
-    pretest = self._pretest_data[training_and_evaluation]
+    pretest = self._pretest_data[training_and_evaluation].copy()
     pretest['period'] = (pretest['date'].between(
         self._time_window_for_eval.first_day,
         self._time_window_for_eval.last_day)).astype(int)
@@ -229,6 +244,8 @@ class TrimmedMatchGeoXDesign(object):
             'evaluation_' + self._spend_proxy: 'spend'
         }).sort_values(by='pair')
 
+    self._pairs = pairs
+    self._geo_level_eval_data = geo_level_eval_data
     return (pairs, geo_level_eval_data)
 
   def report_candidate_designs(
@@ -267,9 +284,7 @@ class TrimmedMatchGeoXDesign(object):
         pd.DataFrames have columns (simulation, estimate, trim_rate, std_error,
         conf_interval_low, conf_interval_up, ci_level).
     """
-    pairs, geo_level_eval_data = self._create_geo_pairs(use_cross_validation)
-    self._pairs = pairs
-    self._geo_level_eval_data = geo_level_eval_data
+    pairs, geo_level_eval_data = self.create_geo_pairs(use_cross_validation)
     max_num_pairs_to_filter = len(pairs.index) - _MIN_NUM_PAIRS
     if max_num_pairs_to_filter < 0:
       raise ValueError(
@@ -362,13 +377,18 @@ class TrimmedMatchGeoXDesign(object):
       self,
       num_pairs_filtered: int,
       base_seed: int,
-      confidence: float = _DEFAULT_CONFIDENCE_LEVEL) -> np.ndarray:
+      confidence: float = _DEFAULT_CONFIDENCE_LEVEL,
+      group_control: int = common_classes.GeoAssignment.CONTROL,
+      group_treatment: int = common_classes.GeoAssignment.TREATMENT
+  ) -> np.ndarray:
     """Plot the comparison between treatment and control of a candidate design.
 
     Args:
       num_pairs_filtered: int, number of pairs to filter from the experiment.
       base_seed: seed for the random number generator.
       confidence: float in (0, 1), confidence level for 2-sided CI.
+      group_control: value representing the control group in the data.
+      group_treatment: value representing the treatment group in the data.
 
     Returns:
       axes_dict: a dictionary with keys (budget, iroas) with the plot of the
@@ -396,17 +416,29 @@ class TrimmedMatchGeoXDesign(object):
     ]].merge(
         assignment, on=['geo', 'pair'], how='left')
 
-    self._geo_level_eval_data['assignment'] = pd.to_numeric(
-        self._geo_level_eval_data['assignment'], errors='coerce')
+    self._geo_level_eval_data['assignment'] = self._geo_level_eval_data[
+        'assignment'].map({
+            False: group_control,
+            True: group_treatment
+        })
 
     axes = plot_utilities.output_chosen_design(
         self._pretest_data, self._geo_level_eval_data, self._response,
-        self._spend_proxy, self._num_pairs_filtered, self._time_window_for_eval)
+        self._spend_proxy, self._num_pairs_filtered, self._time_window_for_eval,
+        group_control, group_treatment)
 
     return axes
 
-  def plot_pair_by_pair_comparison(self) -> sns.FacetGrid:
+  def plot_pair_by_pair_comparison(
+      self,
+      group_control: int = common_classes.GeoAssignment.CONTROL,
+      group_treatment: int = common_classes.GeoAssignment.TREATMENT
+  ) -> sns.FacetGrid:
     """Plot the time series of the response variable for each pair.
+
+    Args:
+      group_control: value representing the control group in the data.
+      group_treatment: value representing the treatment group in the data.
 
     Returns:
       g: sns.FacetGrid containing one axis for each pair of geos. Each axis
@@ -416,6 +448,6 @@ class TrimmedMatchGeoXDesign(object):
     g = plot_utilities.plot_paired_comparison(
         self._pretest_data, self._geo_level_eval_data, self._response,
         self._num_pairs_filtered, self._time_window_for_design,
-        self._time_window_for_eval)
+        self._time_window_for_eval, group_control, group_treatment)
 
     return g

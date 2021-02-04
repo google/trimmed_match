@@ -17,7 +17,6 @@
 
 See the tech details in https://ai.google/research/pubs/pub48448/.
 """
-
 from typing import List, Set
 
 import dataclasses
@@ -30,6 +29,9 @@ from trimmed_match.core.python import estimator_ext
 # iroas: float
 # std_error: float
 TrimAndError = estimator_ext.TrimAndError
+
+# This trim rate removes half of the data
+RATE_TO_TRIM_HALF_DATA = 0.25
 
 
 @dataclasses.dataclass
@@ -86,7 +88,7 @@ class TrimmedMatch(object):
   def __init__(self,
                delta_response: List[float],
                delta_spend: List[float],
-               max_trim_rate: float = 0.25):
+               max_trim_rate: float = RATE_TO_TRIM_HALF_DATA):
     """Initializes the class.
 
     Args:
@@ -105,6 +107,7 @@ class TrimmedMatch(object):
     if max_trim_rate < 0.0:
       raise ValueError("max_trim_rate is negative.")
 
+    self._max_trim_rate = max_trim_rate
     self._delta_response = delta_response
     self._delta_spend = delta_spend
     self._tm = estimator_ext.TrimmedMatch(
@@ -132,10 +135,13 @@ class TrimmedMatch(object):
       Report, as defined in the class Report above.
 
     Raises:
-      ValueError: confidence is outside of (0, 1].
+      ValueError: confidence is outside of (0, 1] or trim_rate > max_trim_rate.
     """
     if (confidence <= 0.0) | (confidence > 1.0):
       raise ValueError("Confidence is outside of (0, 1]")
+    if trim_rate > self._max_trim_rate:
+      raise ValueError(f"trim_rate {trim_rate} is greater than max_trim_rate "
+                       f"which is {self._max_trim_rate}.")
 
     output = self._tm.Report(stats.norm.ppf(0.5 + 0.5 * confidence), trim_rate)
     epsilons = self._CalculateEpsilons(output.estimate)

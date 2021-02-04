@@ -15,10 +15,13 @@
 
 """Utilities functions to report the experiment results in the colab.
 """
-
 import collections
+import itertools
+
+import numpy as np
 import pandas as pd
 from trimmed_match import estimator
+from trimmed_match.design import common_classes
 from trimmed_match.design import util
 
 TrimmedMatchData = collections.namedtuple('TrimmedMatchData', [
@@ -31,34 +34,56 @@ TrimmedMatchResults = collections.namedtuple('TrimmedMatchResults', [
 ])
 
 
-def prepare_data_for_post_analysis(geox_data: pd.DataFrame,
-                                   exclude_cooldown: bool = True
-                                  ) -> TrimmedMatchData:
+def prepare_data_for_post_analysis(
+    geox_data: pd.DataFrame,
+    exclude_cooldown: bool = True,
+    group_control: int = common_classes.GeoAssignment.CONTROL,
+    group_treatment: int = common_classes.GeoAssignment.TREATMENT
+) -> TrimmedMatchData:
   """Returns a data frame to be analysed using Trimmed Match.
 
   Args:
     geox_data: data frame with columns (geo, response, cost, period, pair,
       assignment)
       where period is 0 (pretest), 1 (test), 2 (cooldown) and -1 (others).
-    exclude_cooldown: TRUE (only using test period), FALSE (using test +
+    exclude_cooldown: True (only using test period), False (using test +
       cooldown).
+    group_control: value representing the control group in the data.
+    group_treatment: value representing the treatment group in the data.
 
   Returns:
     dt: namedtuple with fields pair, treatment_response, treatment_cost,
       control_response, control_cost.
+
+  Raises:
+    ValueError: if the number of control and treatment geos is different, if any
+    geo is duplicated, or if any pair does have one geo per group.
   """
   if exclude_cooldown:
-    geo_data = geox_data[geox_data['period'] == 1].copy()
+    experiment_data = geox_data[geox_data['period'] == 1].copy()
   else:
-    geo_data = geox_data[geox_data['period'].isin([1, 2])].copy()
+    experiment_data = geox_data[geox_data['period'].isin([1, 2])].copy()
 
-  grouped_data = geo_data.groupby(['pair', 'assignment'],
-                                  as_index=False)[['response', 'cost']].sum()
+  grouped_data = experiment_data.groupby(['pair', 'assignment', 'geo'],
+                                         as_index=False)[['response',
+                                                          'cost']].sum()
+  # remove any assignment outside treatment/control
+  grouped_data = grouped_data[grouped_data['assignment'].isin(
+      [group_control, group_treatment])]
+  grouped_data.sort_values(by=['pair', 'assignment'], inplace=True)
 
-  grouped_data.sort_values(by='pair', inplace=True)
+  if any(grouped_data['geo'].duplicated()):
+    raise ValueError('Some geos are duplicated and appear in multiple pairs.')
 
-  is_treat = grouped_data['assignment'] == 1
-  is_control = grouped_data['assignment'] == 0
+  expected = pd.DataFrame(
+      data=itertools.product(grouped_data.pair.unique(),
+                             [group_control, group_treatment]),
+      columns=['pair', 'assignment']).sort_values(by=['pair', 'assignment'])
+  if not np.array_equal(grouped_data[['pair', 'assignment']], expected):
+    raise ValueError('Some pairs do not have one geo for each group.')
+
+  is_treat = grouped_data['assignment'] == group_treatment
+  is_control = grouped_data['assignment'] == group_control
 
   dt = TrimmedMatchData(
       pair=grouped_data.loc[is_treat, 'pair'].to_list(),

@@ -14,6 +14,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//trimmed_match:estimator",
+        "//trimmed_match/design:common_classes",
         "//trimmed_match/design:util",
     ],
 )

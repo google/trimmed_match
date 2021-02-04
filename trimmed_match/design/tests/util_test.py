@@ -27,6 +27,17 @@ TimeWindow = common_classes.TimeWindow
 
 class UtilTest(unittest.TestCase):
 
+  def testCalculateMinDetectableIroasValueError(self):
+    with self.assertRaises(ValueError):
+      util.CalculateMinDetectableIroas(-0.1, 0.5)
+    with self.assertRaises(ValueError):
+      util.CalculateMinDetectableIroas(0.1, 1.1)
+
+  def testCalculateMinDetectableIroas(self):
+    calc_min_detectable_iroas = util.CalculateMinDetectableIroas(
+        significance_level=0.1, power_level=0.9)
+    self.assertAlmostEqual(2.56, calc_min_detectable_iroas.at(1.0), places=2)
+
   def testFindDaysToExclude(self):
     day_week_exclude = [
         '2020/10/10', '2020/11/10-2020/12/10', '2020/08/10']
@@ -115,6 +126,19 @@ class UtilTest(unittest.TestCase):
     self.assertEqual(
         str(cm.exception),
         'The provided time series seem to have irregular frequencies.')
+
+  def testFindFrequencyDataNotSorted(self):
+    dates = list(pd.date_range(start='2020-01-01', end='2020-02-01', freq='D'))
+    geos = [1, 2, 3, 4]
+    df = pd.DataFrame({
+        'date': dates * len(geos),
+        'geo': sorted(geos * len(dates))
+    })
+    # permute the order of the rows, so that the dataset is not sorted by date
+    df = df.sample(frac=1, replace=False)
+    df.set_index(['geo', 'date'], inplace=True)
+    frequency = util.infer_frequency(df, 'date', 'geo')
+    self.assertEqual(frequency, 'D')
 
   def testInsufficientData(self):
     dates = list(pd.date_range(start='2020-01-01', end='2020-01-01', freq='D'))
@@ -314,6 +338,61 @@ class UtilTest(unittest.TestCase):
     ]
     self.assertEqual(numb_formatted, ['123', '10.8K', '14M', '8.93B', '1.02tn'])
 
+  def testFlagPercentageValue(self):
+    output = util.flag_percentage_value(val='10 %', value=9.0, operation='>')
+    self.assertEqual(output, 'color: red')
+    output = util.flag_percentage_value(val='10 %', value=10.1, operation='>')
+    self.assertEqual(output, 'color: black')
+
+    output = util.flag_percentage_value(val='10 %', value=9.0, operation='<')
+    self.assertEqual(output, 'color: black')
+    output = util.flag_percentage_value(val='10 %', value=10.1, operation='<')
+    self.assertEqual(output, 'color: red')
+
+  def testCreateOutputTable(self):
+    results = pd.DataFrame({
+        'num_pairs_filtered': [0, 1, 0, 1],
+        'experiment_response': [200, 100, 200, 100],
+        'experiment_spend': [20, 10, 20, 10],
+        'spend_response_ratio': [0.1, 0.1, 0.1, 0.1],
+        'budget': [1000, 1000, 500, 500],
+        'iroas': [0, 0, 0, 0],
+        'rmse': [1, 0.5, 2, 1],
+        'rmse_cost_adjusted': [1, 0.625, 2, 1.25],
+        'proportion_cost_in_experiment': [1, 0.8, 1, 0.8]
+    })
+    budgets_for_design = [500, 1000]
+    total_response = 300
+    total_spend = 25
+    geo_treatment = pd.DataFrame({
+        'geo': [1, 2, 3, 4],
+        'pair': [1, 2, 3, 4],
+        'response': [10, 3, 1, 4],
+        'spend': [1, 1.5, 0.5, 4]
+    })
+    average_order_value = 1
+    num_geos = 8
+    output = util.create_output_table(results, total_response, total_spend,
+                                      geo_treatment, budgets_for_design,
+                                      average_order_value, num_geos)
+    rmse_multiplier = 2.123172
+    minimum_detectable_iroas = [rmse_multiplier * 1, rmse_multiplier * 0.5]
+    minimum_detectable_lift = [
+        minimum_detectable_iroas[x] * budgets_for_design[x] * 100 / 8
+        for x in range(len(minimum_detectable_iroas))
+    ]
+    minimum_detectable_lift = [f'{x:.2f} %' for x in minimum_detectable_lift]
+    minimum_detectable_iroas = [f'{x:.3}' for x in minimum_detectable_iroas]
+    expected_output = pd.DataFrame({
+        'Budget': ['500', '1K'],
+        'Minimum detectable iROAS': minimum_detectable_iroas,
+        'Minimum detectable lift in response': minimum_detectable_lift,
+        'Treatment/control/excluded geos': ['3  /  3  /  2', '3  /  3  /  2'],
+        'Revenue covered by treatment group': ['2.67 %', '2.67 %'],
+        'Cost/baseline response': ['6250.00 %', '12500.00 %'],
+        'Cost if test budget is scaled nationally': ['2.08K', '4.17K']
+    })
+    self.assertTrue(output.equals(expected_output))
 
 if __name__ == '__main__':
   unittest.main()

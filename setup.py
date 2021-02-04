@@ -30,7 +30,8 @@ __version__ = '1.0.0'
 PROJECT_NAME = 'trimmed_match'
 
 REQUIRED_PACKAGES = [
-    'absl-py', 'numpy>=1.8.0rc1', 'pandas', 'matplotlib', 'scipy', 'seaborn'
+    'absl-py', 'numpy>=1.8.0rc1', 'pandas', 'matplotlib', 'scipy', 'seaborn',
+    'jinja2'
 ]
 
 WORKSPACE_PYTHON_HEADERS_PATTERN = re.compile(

@@ -1,8 +1,8 @@
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 
-licenses(["notice"])
+package(default_visibility = ["//visibility:public"])
 
-exports_files(["LICENSE"])
+licenses(["notice"])
 
 # PYBIND11 wrapper for trimmedmatch package.
 pybind_extension(
@@ -10,8 +10,5 @@ pybind_extension(
     srcs = ["estimator_ext.cc"],
     copts = ["-fexceptions"],
     features = ["-use_header_modules"],
-    visibility = [
-        "//trimmed_match:__subpackages__",
-    ],
     deps = ["//trimmed_match/core:estimator"],
 )

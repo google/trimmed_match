@@ -117,7 +117,7 @@ def main(argv):
   geo_to_pair = geo_to_pair.sort_values(by='pair').reset_index()
   random_assignment = np.random.uniform(-1, 1, npairs) > 0
   treat = [2 * x for x in range(npairs)] + random_assignment
-  geo_to_pair['assignment'] = 0
+  geo_to_pair['assignment'] = 2
   geo_to_pair.loc[geo_to_pair.index.isin(treat), 'assignment'] = 1
 
   postanalysis_data = pd.merge(

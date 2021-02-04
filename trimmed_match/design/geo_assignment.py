@@ -26,8 +26,8 @@ from trimmed_match import estimator
 _MAX_RANDOM_ASSIGNMENTS = 200
 
 
-def _binomial_sign_test(delta_responses: List[float],
-                        confidence: float = 0.8) -> bool:
+def binomial_sign_test(delta_responses: List[float],
+                       confidence: float = 0.8) -> bool:
   """Returns whether the number of positive pairs is about half of total.
 
   Args:
@@ -45,9 +45,9 @@ def _binomial_sign_test(delta_responses: List[float],
           num_positives >= num_pairs - conf_interval_upper)
 
 
-def _trimmed_match_aa_test(delta_responses: List[float],
-                           delta_spends: List[float],
-                           confidence: float = 0.8) -> bool:
+def trimmed_match_aa_test(delta_responses: List[float],
+                          delta_spends: List[float],
+                          confidence: float = 0.8) -> bool:
   """Returns whether the number of positive pairs is about half of total.
 
   Args:
@@ -91,8 +91,8 @@ def _generate_random_paired_assignment(num_pairs: int) -> np.array:
   return geo_assignment
 
 
-def _calculate_paired_difference(geo_values: np.array,
-                                 assignment: np.array) -> np.array:
+def calculate_paired_difference(geo_values: np.array,
+                                assignment: np.array) -> np.array:
   """Calculates treatment/control difference in each pair.
 
   Args:
@@ -180,18 +180,17 @@ def generate_balanced_random_assignment(
     geo_assignment = _generate_random_paired_assignment(num_pairs)
 
     # binomial sign test
-    delta_responses = _calculate_paired_difference(
+    delta_responses = calculate_paired_difference(
         np.array(sign_data['response']), geo_assignment)
-    if not _binomial_sign_test(delta_responses, sign_test_confidence):
+    if not binomial_sign_test(delta_responses, sign_test_confidence):
       continue
 
     # trimmed match aa test
-    delta_responses = _calculate_paired_difference(
+    delta_responses = calculate_paired_difference(
         np.array(aa_data['response']), geo_assignment)
-    delta_spends = _calculate_paired_difference(
+    delta_spends = calculate_paired_difference(
         np.array(aa_data['spend']), geo_assignment)
-    if _trimmed_match_aa_test(delta_responses, delta_spends,
-                              aa_test_confidence):
+    if trimmed_match_aa_test(delta_responses, delta_spends, aa_test_confidence):
       break
 
     if iter_num > _MAX_RANDOM_ASSIGNMENTS:

@@ -16,13 +16,72 @@
 """Utilities functions to manipulate the data in the colab."""
 
 import datetime
+import operator
 
 from typing import List
+import dataclasses
 import numpy as np
 import pandas as pd
+import pandas.io.formats.style as style
+from scipy import stats
 from trimmed_match.design import common_classes
 
 TimeWindow = common_classes.TimeWindow
+FormatOptions = common_classes.FormatOptions
+
+_operator_functions = {'>': operator.gt,
+                       '<': operator.lt,
+                       '<=': operator.le,
+                       '>=': operator.ge,
+                       '=': operator.eq,
+                       '!=': operator.ne}
+
+_inverse_op = {'<': '>', '<=': '>=', '>': '<', '>=': '<=', '=': '!='}
+
+
+@dataclasses.dataclass
+class CalculateMinDetectableIroas:
+  """Class for the calculation of the minimum detectable iROAS.
+
+  Hypothesis testing for H0: iROAS=0 vs H1: iROAS>=min_detectable_iroas based
+  on one sample X which follows a normal distribution with mean iROAS (unknown)
+  and standard deviation rmse (known).
+
+    Typical usage example:
+
+    calc_min_detectable_iroas = CalculateMinDetectableIroas(0.1, 0.9)
+    min_detectable_iroas = calc_min_detectable_iroas.at(2.0)
+
+  """
+
+  # chance of rejecting H0 incorrectly when H0 holds.
+  significance_level: float = 0.1
+
+  # chance of rejecting H0 correctly when H1 holds.
+  power_level: float = 0.9
+
+  # minimum detectable iroas at rmse=1.
+  rmse_multiplier: float = dataclasses.field(init=False)
+
+  def __post_init__(self):
+    """Calculates rmse_multiplier.
+
+    Raises:
+      ValueError: if significance_level or power_level is not in (0, 1).
+    """
+    if self.significance_level <= 0 or self.significance_level >= 1.0:
+      raise ValueError('significance_level must be in (0, 1), but got '
+                       f'{self.significance_level}.')
+    if self.power_level <= 0 or self.power_level >= 1.0:
+      raise ValueError('power_level must be in (0, 1), but got '
+                       f'{self.power_level}.')
+    self.rmse_multiplier = (
+        stats.norm.ppf(self.power_level) +
+        stats.norm.ppf(1 - self.significance_level))
+
+  def at(self, rmse: float) -> float:
+    """Calculates min_detectable_iroas at the specified rmse."""
+    return rmse * self.rmse_multiplier
 
 
 def find_days_to_exclude(
@@ -35,8 +94,7 @@ def find_days_to_exclude(
     '2020/01/01 - 2020/02/01' (indicating start and end date of the time period)
 
   Returns:
-    days_exclude: a List of TimeWindows obtained from the
-      list in input.
+    days_exclude: a List of TimeWindows obtained from the list in input.
   """
   days_exclude = []
   for x in dates_to_exclude:
@@ -210,6 +268,7 @@ def infer_frequency(data: pd.DataFrame, date_index: str,
     ValueError: if it is not possible to infer frequency of sampling from the
       provided pd.DataFrame.
   """
+  data = data.sort_values(by=[date_index, series_index])
   # Infer most likely frequence for each series_index
   series_names = data.index.get_level_values(series_index).unique().tolist()
   series_frequencies = []
@@ -266,3 +325,226 @@ def human_readable_number(number: float) -> str:
   readable_number = '{}{}'.format('{:f}'.format(number).rstrip('0').rstrip('.'),
                                   ['', 'K', 'M', 'B', 'tn'][magnitude])
   return readable_number
+
+
+def change_background_row(df: pd.DataFrame, value: float, operation: str,
+                          column: str):
+  """Colors a row of a table based on the expression in input.
+
+  Color a row in:
+
+    - orange if the value of the column satisfies the expression in input
+    - beige if the value of the column satisfies the inverse expression in input
+    - green otherwise
+
+  For example, if the column has values [1, 2, 3] and we pass 'value' equal to
+  2, and operation '>', then
+   - 1 is marked in beige (1 < 2, which is the inverse expression)
+   - 2 is marked in green (it's not > and it's not <)
+   - 3 is marked in orange(3 > 2, which is the expression)
+
+  Args:
+    df: the table of which we want to change the background color.
+    value: term of comparison to be used in the expression.
+    operation: a string to define which operator to use, e.g. '>' or '='. For a
+      full list check _operator_functions.
+    column: name of the column to be used for the comparison
+
+  Returns:
+    pd.Series
+  """
+  if _operator_functions[operation](float(df[column]), value):
+    return pd.Series('background-color: orange', df.index)
+
+  elif _operator_functions[_inverse_op[operation]](float(df[column]), value):
+    return pd.Series('background-color: beige', df.index)
+  else:
+    return pd.Series('background-color: lightgreen', df.index)
+
+
+def flag_percentage_value(val, value: float, operation: str):
+  """Colors a cell in red if its value satisfy the expression in input.
+
+  Colors a cell in red if the expression is true for that cell, e.g. if the
+  value of the cell is 10, 'value' in input is 5 and operation is '>', then we
+  will color the cell in red as 10 > 5.
+
+  Args:
+    val: value in a cell of a dataframe.
+    value: term of comparison used to decide the color of the cell.
+    operation: a string to define which operator to use, e.g. '>' or '='. For a
+      full list check _operator_functions.
+
+  Returns:
+    a str defining the color coding of the cell.
+  """
+  if _operator_functions[operation](float(val.strip(' %')), value):
+    color = 'red'
+  else:
+    color = 'black'
+  return 'color: %s' % color
+
+
+def create_output_table(results: pd.DataFrame,
+                        total_response: float,
+                        total_spend: float,
+                        geo_treatment: pd.DataFrame,
+                        budgets_for_design: List[float],
+                        average_order_value: float,
+                        num_geos: int,
+                        confidence_level: float = 0.9,
+                        power_level: float = 0.8) -> pd.DataFrame:
+  """Creates the table with the output designs.
+
+  Args:
+   results: table with columns (num_pairs_filtered,
+     experiment_response, experiment_spend, spend_response_ratio, budget,
+     iroas, rmse, proportion_cost_in_experiment) containing the generated
+     design, e.g. the first output of the
+     function TrimmedMatchGeoXDesign.report_candidate_design.
+   total_response: total response for all geos (excluded as well) during the
+     evaluation period.
+   total_spend: total spend for all geos (excluded as well) during the
+     evaluation period.
+   geo_treatment: table with columns (geo, response, spend, pair) containing the
+     treatment geos and their overall response and spend during the evaluation
+     period.
+   budgets_for_design: list of budgets to be considered for the designs.
+   average_order_value: factor used to change scale from conversion count to
+     conversion value.
+   num_geos: number of geos available.
+   confidence_level: confidence level for the test H0: iROAS=0
+     vs H1: iROAS>=minimum_detectable_iroas.
+   power_level: level used  for the power analysis.
+
+  Returns:
+    a pd.DataFrame with the output designs.
+  """
+  calc_min_detectable_iroas = CalculateMinDetectableIroas(
+      1 - confidence_level, power_level)
+
+  designs = []
+  for budget in budgets_for_design:
+    tmp_result = results[results['budget'] == budget]
+    chosen_design = tmp_result.loc[tmp_result['rmse_cost_adjusted'].idxmin()]
+    baseline = geo_treatment.loc[
+        geo_treatment['pair'] > chosen_design['num_pairs_filtered'],
+        'response'].sum()
+    cost_in_experiment = geo_treatment.loc[
+        geo_treatment['pair'] > chosen_design['num_pairs_filtered'],
+        'spend'].sum()
+    min_detectable_iroas_raw = calc_min_detectable_iroas.at(
+        chosen_design['rmse'])
+    min_detectable_iroas = average_order_value * min_detectable_iroas_raw
+    min_detectable_lift = budget * 100 * min_detectable_iroas_raw / baseline
+    num_removed_geos = int(2 * chosen_design['num_pairs_filtered'])
+    num_geo_pairs = int((num_geos - num_removed_geos) / 2)
+    treat_control_removed = (f'{num_geo_pairs}  /  {num_geo_pairs}  /  ' +
+                             f'{num_removed_geos}')
+    revenue_covered = 100 * baseline / total_response
+    proportion_cost_in_experiment = cost_in_experiment / total_spend
+    national_budget = human_readable_number(
+        budget / proportion_cost_in_experiment)
+    designs.append({
+        'Budget': human_readable_number(budget),
+        'Minimum detectable iROAS': f'{min_detectable_iroas:.3}',
+        'Minimum detectable lift in response': f'{min_detectable_lift:.2f} %',
+        'Treatment/control/excluded geos': treat_control_removed,
+        'Revenue covered by treatment group': f'{revenue_covered:.2f} %',
+        'Cost/baseline response': f'{(budget / baseline * 100):.2f} %',
+        'Cost if test budget is scaled nationally': national_budget
+    })
+
+  designs = pd.DataFrame(designs)
+  designs.index.rename('Design', inplace=True)
+  return designs
+
+
+def format_table(
+    df: pd.DataFrame,
+    formatting_options: List[FormatOptions]) -> style.Styler:
+  """Formats a table with the output designs.
+
+  Args:
+    df: a table to be formatted.
+    formatting_options: a dictionary indicating for each column (key) what
+      formatting function to be used and its additional args, e.g.
+
+      formatting_options =
+        {'column_1': {'function': fnc, 'args': {'input1': 1, 'input2': 2}}}
+
+  Returns:
+    a pandas.io.formats.style.Styler with the table formatted.
+  """
+  for ind in range(len(formatting_options)):
+    tmp_options = formatting_options[ind]
+    if ind == 0:
+      # if axis is in the args, then the function should be applied on rows/cols
+      if 'axis' in tmp_options.args:
+        formatted_table = df.style.apply(tmp_options.function,
+                                         **tmp_options.args)
+      # apply the formatting elementwise
+      else:
+        formatted_table = df.style.applymap(tmp_options.function,
+                                            **tmp_options.args)
+    else:
+      # if axis is in the args, then the function should be applied on rows/cols
+      if 'axis' in tmp_options.args:
+        formatted_table = formatted_table.apply(tmp_options.function,
+                                                **tmp_options.args)
+      # apply the formatting elementwise
+      else:
+        formatted_table = formatted_table.applymap(tmp_options.function,
+                                                   **tmp_options.args)
+
+  return formatted_table
+
+
+def format_design_table(designs: pd.DataFrame,
+                        minimum_detectable_iroas: float,
+                        minimum_lift_in_response_metric: float = 10.0,
+                        minimum_revenue_covered_by_treatment: float = 5.0):
+  """Formats a table with the output designs.
+
+  Args:
+    designs: table with columns (Budget, Minimum detectable iROAS,
+      Minimum Detectable lift in response, Treatment/control/excluded geos,
+      Revenue covered by treatment group, Cost/baseline response,
+      Cost if test budget is scaled nationally) containing the output designs,
+      e.g. the output of the function create_output_table.
+   minimum_detectable_iroas: target minimum detectable iROAS used to define
+    the optimality of a design.
+   minimum_lift_in_response_metric: threshold minimum detectable lift
+    in percentage used to flag designs with higher detectable lift.
+   minimum_revenue_covered_by_treatment: value used to flag any design where the
+     treatment group is too small based on response.
+
+  Returns:
+    a pandas.io.formats.style.Styler with the table formatted.
+  """
+  formatting_options = [
+      FormatOptions(
+          column='Minimum detectable lift in response',
+          function=flag_percentage_value,
+          args={
+              'value': minimum_lift_in_response_metric,
+              'operation': '>'
+          }),
+      FormatOptions(
+          column='Revenue covered by treatment group',
+          function=flag_percentage_value,
+          args={
+              'value': minimum_revenue_covered_by_treatment,
+              'operation': '<'
+          }),
+      FormatOptions(
+          column='Minimum detectable iROAS',
+          function=change_background_row,
+          args={
+              'value': minimum_detectable_iroas,
+              'operation': '>',
+              'axis': 1
+          })
+  ]
+
+  return format_table(designs, formatting_options)

@@ -95,10 +95,16 @@ def plot_candidate_design_rmse(
   return axes_dict
 
 
-def output_chosen_design(pretest_data: pd.DataFrame,
-                         geo_level_eval_data: pd.DataFrame, response: str,
-                         spend_proxy: str, num_pairs_filtered: int,
-                         time_window_for_eval: TimeWindow) -> np.ndarray:
+def output_chosen_design(
+    pretest_data: pd.DataFrame,
+    geo_level_eval_data: pd.DataFrame,
+    response: str,
+    spend_proxy: str,
+    num_pairs_filtered: int,
+    time_window_for_eval: TimeWindow,
+    group_control: int = common_classes.GeoAssignment.CONTROL,
+    group_treatment: int = common_classes.GeoAssignment.TREATMENT
+) -> np.ndarray:
   """Plot the comparison between treatment and control of a candidate design.
 
   Args:
@@ -110,6 +116,8 @@ def output_chosen_design(pretest_data: pd.DataFrame,
     num_pairs_filtered: int, number of pairs to filter from the experiment.
     time_window_for_eval: TimeWindow, representing the time period of pretest
       data used for evaluation of RMSE in estimating iROAS.
+    group_control: value representing the control group in the data.
+    group_treatment: value representing the treatment group in the data.
 
   Returns:
     axes_dict: a dictionary with keys (budget, iroas) with the plot of the
@@ -119,18 +127,18 @@ def output_chosen_design(pretest_data: pd.DataFrame,
   included_pairs = geo_level_eval_data['pair'] > num_pairs_filtered
 
   geopairs = geo_level_eval_data[included_pairs]
-  geo_treatment = geopairs[geopairs['assignment'] == 1]
-  geo_control = geopairs[geopairs['assignment'] == 0]
+  geo_treatment = geopairs[geopairs['assignment'] == group_treatment]
+  geo_control = geopairs[geopairs['assignment'] == group_control]
   treatment_geo = geo_treatment['geo'].to_list()
   control_geo = geo_control['geo'].to_list()
 
   treatment_time_series = pretest_data[pretest_data['geo'].isin(
       treatment_geo)].groupby(
-          'date', as_index=False)[response, spend_proxy].sum()
+          'date', as_index=False)[[response, spend_proxy]].sum()
 
   control_time_series = pretest_data[pretest_data['geo'].isin(
       control_geo)].groupby(
-          'date', as_index=False)[response, spend_proxy].sum()
+          'date', as_index=False)[[response, spend_proxy]].sum()
 
   _, axes = plt.subplots(2, 2, figsize=(15, 7.5))
 
@@ -139,7 +147,7 @@ def output_chosen_design(pretest_data: pd.DataFrame,
       y=np.sqrt(geo_control['response']),
       ax=axes[0, 0],
       fit_reg=False)
-  axes[0, 0].set_title(response + '( in square root)')
+  axes[0, 0].set_title(response + ' (in square root)')
   axes[0, 0].set_xlabel('treatment')
   axes[0, 0].set_ylabel('control')
   lim = np.sqrt([
@@ -214,7 +222,10 @@ def plot_paired_comparison(
     pretest_data: pd.DataFrame, geo_level_eval_data: pd.DataFrame,
     response: str, num_pairs_filtered: int,
     time_window_for_design: TimeWindow,
-    time_window_for_eval: TimeWindow) -> sns.FacetGrid:
+    time_window_for_eval: TimeWindow,
+    group_control: int = common_classes.GeoAssignment.CONTROL,
+    group_treatment: int = common_classes.GeoAssignment.TREATMENT
+) -> sns.FacetGrid:
   """Plot the time series of the response variable for each pair.
 
   Args:
@@ -227,6 +238,8 @@ def plot_paired_comparison(
       pretest data used for the design (training + eval).
     time_window_for_eval: TimeWindow, representing the time period of pretest
       data used for evaluation of RMSE in estimating iROAS.
+    group_control: value representing the control group in the data.
+    group_treatment: value representing the treatment group in the data.
 
   Returns:
     g: sns.FacetGrid containing one axis for each pair of geos. Each axis
@@ -265,16 +278,15 @@ def plot_paired_comparison(
   g = (g.map(plt.plot, 'date', response).add_legend())
   for ind in range(len(g.axes)):
     pair = geos_assigned['pair'] == (ind + num_pairs_filtered + 1)
-    cont = geos_assigned[pair
-                         & (geos_assigned['assignment'] == 0)]['geo'].values[0]
-    treat = geos_assigned[pair
-                          & (geos_assigned['assignment'] == 1)]['geo'].values[0]
-    g.axes[ind].axvline(
-        x=time_window_for_eval.last_day, color='black', ls='-')
-    g.axes[ind].axvline(
-        x=time_window_for_design.last_day, color='red', ls='--')
-    g.axes[ind].axvline(
-        x=time_window_for_eval.first_day, color='black', ls='-')
+    cont = geos_assigned[
+        pair
+        & (geos_assigned['assignment'] == group_control)]['geo'].values[0]
+    treat = geos_assigned[
+        pair
+        & (geos_assigned['assignment'] == group_treatment)]['geo'].values[0]
+    g.axes[ind].axvline(x=time_window_for_eval.last_day, color='black', ls='-')
+    g.axes[ind].axvline(x=time_window_for_design.last_day, color='red', ls='--')
+    g.axes[ind].axvline(x=time_window_for_eval.first_day, color='black', ls='-')
     g.axes[ind].axvline(
         x=time_window_for_design.first_day, color='red', ls='--')
 

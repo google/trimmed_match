@@ -85,6 +85,18 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         'spend': 0.01,
     })
 
+  def testPropertyGetter(self):
+    # test that they are None at initialization of the class
+    self.assertIsNone(self.test_class.pairs)
+    self.assertIsNone(self.test_class.geo_level_eval_data)
+    # test the values are updated once the pairs have been created
+    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
+        use_cross_validation=False)
+
+    self.assertTrue(pairs.equals(self.test_class.pairs))
+    self.assertTrue(
+        geo_level_eval_data.equals(self.test_class.geo_level_eval_data))
+
   def testMissingResponseVariable(self):
     with self.assertRaises(ValueError):
       _ = TrimmedMatchGeoXDesign(
@@ -123,6 +135,21 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           time_window_for_design=self.design_window,
           time_window_for_eval=self.evaluation_window,
           spend_proxy='unknown',
+          matching_metrics={'response': 1.0})
+
+  def testZeroSpendProxy(self):
+    data = self.test_data.copy()
+    data['spend'] = 0
+    with self.assertRaisesRegex(
+        ValueError,
+        r'The column spend should have some positive entries. '
+        'The sum of spend found is 0.0'):
+      _ = TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          spend_proxy='spend',
           matching_metrics={'response': 1.0})
 
   def testInvalidValues(self):
@@ -167,7 +194,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     self.assertTrue(result.equals(expected))
 
   def testCreateGeoPairsNoCV(self):
-    pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
+    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
         use_cross_validation=False)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
@@ -189,7 +216,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             })))
 
   def testCreateGeoPairsCV(self):
-    pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
+    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
         use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
@@ -222,7 +249,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
 
     self.test_class._pretest_data = pd.concat(
         [self.test_class._pretest_data, add_geo], sort=False)
-    pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
+    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
         use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
@@ -246,7 +273,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
 
   def testCreateGeoPairsMatchingMetric(self):
     self.test_class._matching_metrics = {'response': 1.0, 'spend': 0.5}
-    pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
+    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
         use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
@@ -273,7 +300,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         'response': 0,
         'spend': 0
     }
-    pairs, geo_level_eval_data = self.test_class._create_geo_pairs(
+    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
         use_cross_validation=True)
     geo_level_eval_data.sort_values(by='geo', inplace=True)
     geo_level_eval_data.reset_index(drop=True, inplace=True)
@@ -362,6 +389,36 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     for budget in budget_list:
       for iroas in iroas_list:
         self.assertIsInstance(axes_dict[(budget, iroas)], plt.Figure)
+
+  def testOutputCandidateDesign(self):
+    """Check that the design in output is ok when group ids are specified."""
+    self.test_class._pretest_data = pd.DataFrame({
+        'date':
+            pd.to_datetime(
+                ['2019-01-01', '2019-10-01'] * 20),
+        'geo': sorted(list(range(20)) * 2),
+        'response': range(100, 140),
+        'spend': range(40)
+    })
+
+    _ = self.test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_pairs_filtered_list=[0],
+        num_simulations=200)
+    _ = self.test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
+    default_ids = self.test_class.geo_level_eval_data
+    _ = self.test_class.output_chosen_design(
+        num_pairs_filtered=0, base_seed=0, group_control=2, group_treatment=1)
+    specific_ids = self.test_class.geo_level_eval_data
+
+    self.assertTrue(
+        default_ids.drop('assignment', axis=1).equals(
+            specific_ids.drop('assignment', axis=1)))
+    self.assertTrue(
+        np.array_equal(default_ids['assignment'].values,
+                       2 - specific_ids['assignment'].values))
 
 
 if __name__ == '__main__':
