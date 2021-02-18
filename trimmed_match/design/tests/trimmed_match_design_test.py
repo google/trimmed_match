@@ -420,6 +420,92 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         np.array_equal(default_ids['assignment'].values,
                        2 - specific_ids['assignment'].values))
 
+  def testOutputCandidateDesignWithMissingObservation(self):
+    """Checks that no error is raised if missing observation are present."""
+    # geo 51 does not have any observation in the evaluation period, which could
+    # cause aa_test_data and sign_test_data to be different. Sign_test_data
+    # would miss any geo that doesn't have observation in the most recent weeks.
+    self.test_class._pretest_data = pd.DataFrame({
+        'date':
+            pd.to_datetime(
+                ['2019-01-01', '2019-10-01'] * 51 + ['2019-01-01']),
+        'geo': sorted(list(range(50)) * 2) + [50, 50, 51],
+        'response': list(range(100, 200)) + [.1, .1, .1],
+        'spend': list(range(100)) + [1, 1, 1]
+    })
+
+    _ = self.test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_pairs_filtered_list=[0],
+        num_simulations=200)
+    _ = self.test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
+    for index in range(26):
+      self.assertSetEqual(
+          set(self.test_class.geo_level_eval_data['assignment'][(2 * index):(
+              2 * (index + 1))]), set([0, 1]))
+
+  def testOutputCandidateDesignWithMissingObservationInPretest(self):
+    """Checks that no error is raised if missing observation are present."""
+    # geo 51 does not have any observation in the pretest period, which could
+    # cause aa_test_data and sign_test_data to be different.
+    self.test_class._pretest_data = pd.DataFrame({
+        'date':
+            pd.to_datetime(
+                ['2019-01-01', '2019-10-01'] * 51 + ['2019-10-01']),
+        'geo': sorted(list(range(50)) * 2) + [50, 50, 51],
+        'response': sorted(list(range(50)) * 2) + [0.1, 1.1, .1],
+        'spend': list(range(100)) + [1, 2, 1]
+    })
+
+    _ = self.test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_pairs_filtered_list=[0],
+        num_simulations=200)
+    _ = self.test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
+    for index in range(26):
+      self.assertSetEqual(
+          set(self.test_class.geo_level_eval_data['assignment'][(2 * index):(
+              2 * (index + 1))]), set([0, 1]))
+
+  def testOutputCandidateDesignWithMissingObservationDifferentPeriods(self):
+    """Checks that no error is raised if missing observation are present."""
+    # geo 51 does not have any observation in the evaluation period, which could
+    # cause aa_test_data and sign_test_data to be different when the evaluation
+    # period is different than the most recent weeks.
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=pd.DataFrame({
+            'date':
+                pd.to_datetime(['2019-01-01', '2019-10-01'] * 51 +
+                               ['2019-10-01']),
+            'geo':
+                sorted(list(range(50)) * 2) + [50, 50, 51],
+            'response':
+                list(range(100, 200)) + [.1, .1, .1],
+            'spend':
+                list(range(100)) + [1, 1, 1]
+        }),
+        time_window_for_design=self.design_window,
+        time_window_for_eval=TimeWindow(
+            pd.Timestamp('2019-01-01'), pd.Timestamp('2019-02-01')),
+        matching_metrics={'response': 1.0})
+
+    _ = test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_pairs_filtered_list=[0],
+        num_simulations=200)
+    _ = test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
+    for index in range(26):
+      self.assertSetEqual(
+          set(test_class.geo_level_eval_data['assignment'][(2 * index):(
+              2 * (index + 1))]), set([0, 1]))
+
 
 if __name__ == '__main__':
   unittest.main()

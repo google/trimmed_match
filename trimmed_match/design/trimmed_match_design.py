@@ -403,7 +403,7 @@ class TrimmedMatchGeoXDesign(object):
     sign_test_data = pd.merge(
         sign_data,
         self._geo_level_eval_data[['geo', 'pair']],
-        on='geo')
+        on='geo', how='outer').fillna({'response': 0, 'spend': 0})
     aa_test_data = self._geo_level_eval_data.copy()
 
     np.random.seed(base_seed)

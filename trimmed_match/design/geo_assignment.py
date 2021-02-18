@@ -167,9 +167,9 @@ def generate_balanced_random_assignment(
                          aa_test_data.columns)))
 
   sign_data = sign_test_data.sort_values(
-      by=['pair', 'geo'], inplace=False).reset_index()
+      by=['pair', 'geo'], inplace=False).reset_index(drop=True)
   aa_data = aa_test_data.sort_values(
-      by=['pair', 'geo'], inplace=False).reset_index()
+      by=['pair', 'geo'], inplace=False).reset_index(drop=True)
   if not sign_data[['pair', 'geo']].equals(aa_data[['pair', 'geo']]):
     raise ValueError('sign_test_data and aa_test_data differ on (geo, pair)!')
 
