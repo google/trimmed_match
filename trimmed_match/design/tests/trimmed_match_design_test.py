@@ -390,6 +390,37 @@ class TrimmedMatchDesignTest(unittest.TestCase):
       for iroas in iroas_list:
         self.assertIsInstance(axes_dict[(budget, iroas)], plt.Figure)
 
+  def testOutputCandidateDesignAssignments(self):
+    """Check that the design in output is ok."""
+    self.test_class._pretest_data = pd.DataFrame({
+        'date':
+            pd.to_datetime(
+                ['2019-01-01', '2019-10-01'] * 20),
+        'geo': sorted(list(range(20)) * 2),
+        'response': range(100, 140),
+        'spend': range(40)
+    })
+
+    _ = self.test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_pairs_filtered_list=[0],
+        num_simulations=200)
+    self.test_class.generate_balanced_assignment(
+        num_pairs_filtered=0, base_seed=0)
+    self.assertTrue(
+        self.test_class.geo_level_eval_data.equals(
+            pd.DataFrame({
+                'geo': list(range(0, 20)),
+                'pair': sorted(list(range(1, 11)) * 2),
+                'response': [101 + 2 * x for x in range(0, 20)],
+                'spend': [1 + 2 * x for x in range(0, 20)],
+                'assignment': [
+                    1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1
+                ]
+            })))
+
   def testOutputCandidateDesign(self):
     """Check that the design in output is ok when group ids are specified."""
     self.test_class._pretest_data = pd.DataFrame({
@@ -407,9 +438,10 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         use_cross_validation=True,
         num_pairs_filtered_list=[0],
         num_simulations=200)
-    _ = self.test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
-    default_ids = self.test_class.geo_level_eval_data
-    _ = self.test_class.output_chosen_design(
+    self.test_class.generate_balanced_assignment(
+        num_pairs_filtered=0, base_seed=0)
+    default_ids = self.test_class.geo_level_eval_data.copy()
+    self.test_class.generate_balanced_assignment(
         num_pairs_filtered=0, base_seed=0, group_control=2, group_treatment=1)
     specific_ids = self.test_class.geo_level_eval_data
 

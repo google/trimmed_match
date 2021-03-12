@@ -116,6 +116,13 @@ class TimeWindow:
     return sorted_dates[:duration]
 
 
+def time_window_shifted_from(time_window: TimeWindow,
+                             new_first_day: pd.Timestamp) -> TimeWindow:
+  """Shift a TimeWindow to a new first_day."""
+  delta = time_window.last_day - time_window.first_day
+  return TimeWindow(new_first_day, new_first_day + delta)
+
+
 @dataclasses.dataclass
 class FormatOptions:
   """Defines the formatting parameters to change the format of a table.

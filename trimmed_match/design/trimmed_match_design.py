@@ -391,9 +391,37 @@ class TrimmedMatchGeoXDesign(object):
       group_treatment: value representing the treatment group in the data.
 
     Returns:
-      axes_dict: a dictionary with keys (budget, iroas) with the plot of the
-        RMSE curve for the design with corresponding budget and iROAS as a
-        function of the number of excluded pairs.
+      an array of subplots containing the scatterplot and time series comparison
+        for the response and spend of the two groups.
+    """
+    self.generate_balanced_assignment(
+        num_pairs_filtered=num_pairs_filtered,
+        base_seed=base_seed,
+        confidence=confidence,
+        group_control=group_control,
+        group_treatment=group_treatment)
+
+    return plot_utilities.output_chosen_design(
+        self._pretest_data, self._geo_level_eval_data, self._response,
+        self._spend_proxy, self._num_pairs_filtered, self._time_window_for_eval,
+        group_control, group_treatment)
+
+  def generate_balanced_assignment(
+      self,
+      num_pairs_filtered: int,
+      base_seed: int,
+      confidence: float = _DEFAULT_CONFIDENCE_LEVEL,
+      group_control: int = common_classes.GeoAssignment.CONTROL,
+      group_treatment: int = common_classes.GeoAssignment.TREATMENT
+  ):
+    """Generate balanced assignment for the chosen candidate design.
+
+    Args:
+      num_pairs_filtered: int, number of pairs to filter from the experiment.
+      base_seed: seed for the random number generator.
+      confidence: float in (0, 1), confidence level for 2-sided CI.
+      group_control: value representing the control group in the data.
+      group_treatment: value representing the treatment group in the data.
     """
     self._num_pairs_filtered = num_pairs_filtered
     sign_data = self._create_sign_test_data().rename(columns={
@@ -421,13 +449,6 @@ class TrimmedMatchGeoXDesign(object):
             False: group_control,
             True: group_treatment
         })
-
-    axes = plot_utilities.output_chosen_design(
-        self._pretest_data, self._geo_level_eval_data, self._response,
-        self._spend_proxy, self._num_pairs_filtered, self._time_window_for_eval,
-        group_control, group_treatment)
-
-    return axes
 
   def plot_pair_by_pair_comparison(
       self,

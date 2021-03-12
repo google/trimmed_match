@@ -120,9 +120,8 @@ def output_chosen_design(
     group_treatment: value representing the treatment group in the data.
 
   Returns:
-    axes_dict: a dictionary with keys (budget, iroas) with the plot of the
-      RMSE curve as a function of the number of excluded pairs for the design
-      with corresponding budget and iROAS
+    an array of subplots containing the scatterplot and time series comparison
+      for the response and spend of the two groups.
   """
   included_pairs = geo_level_eval_data['pair'] > num_pairs_filtered
 

@@ -100,5 +100,16 @@ class CommonClassesTest(unittest.TestCase):
         })
 
 
+class TimeWindowShiftedTest(unittest.TestCase):
+
+  def testTimeWindowShiftedFrom(self):
+    tw = TimeWindow('2020-01-01', '2020-01-10')
+    new_first_day = pd.Timestamp('2021-01-01')
+    result = common_classes.time_window_shifted_from(tw, new_first_day)
+    expected = TimeWindow('2021-01-01', '2021-01-10')
+    self.assertEqual(expected.first_day, result.first_day)
+    self.assertEqual(expected.last_day, result.last_day)
+
+
 if __name__ == '__main__':
   unittest.main()

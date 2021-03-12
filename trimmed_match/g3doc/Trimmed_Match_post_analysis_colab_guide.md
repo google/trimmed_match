@@ -25,8 +25,8 @@ level and at daily/weekly frequency. The table should be specified in the colab
 by using the URL of the Google Sheet.
 
 **Format**: Google Sheet containing the following mandatory columns: date,
-response, cost, geo, assignment (1=Treatment, 0=Control). Any additional column
-is ok.
+response, cost, geo, assignment (1=Treatment, 2=Control), pair. Any additional
+column is ok.
 
 **Example**:
 [here](https://github.com/google/trimmed_match/blob/master/trimmed_match/example_datasets/example_data_for_post_analysis.csv)
