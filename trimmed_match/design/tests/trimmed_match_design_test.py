@@ -18,10 +18,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from trimmed_match.design import common_classes
 from trimmed_match.design import matched_pairs_rmse
 from trimmed_match.design import trimmed_match_design
+
 import unittest
 
 GeoXType = common_classes.GeoXType
@@ -70,6 +70,15 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         time_window_for_eval=self.evaluation_window,
         matching_metrics={'response': 1.0})
 
+    self.nontrivial_data = pd.DataFrame({
+        'date':
+            pd.to_datetime(
+                ['2019-01-01', '2019-10-01'] * 20),
+        'geo': sorted(list(range(1, 21)) * 2),
+        'response': range(100, 140),
+        'spend': range(1, 41)
+    })
+
   def testMatchingMetrics(self):
     self.assertDictEqual(self.test_class._matching_metrics, {
         'response': 1.0,
@@ -90,12 +99,26 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     self.assertIsNone(self.test_class.pairs)
     self.assertIsNone(self.test_class.geo_level_eval_data)
     # test the values are updated once the pairs have been created
-    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
-        use_cross_validation=False)
-
-    self.assertTrue(pairs.equals(self.test_class.pairs))
+    self.test_class.create_geo_pairs(use_cross_validation=False)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.equals(self.test_class.geo_level_eval_data))
+        self.test_class.pairs.equals(
+            pd.DataFrame({
+                'geo1': [1, 2],
+                'geo2': [3, 4],
+                'distance': [0.0, 0.0],
+                'pair': [1, 2]
+            })))
+    self.assertTrue(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
+            pd.DataFrame({
+                'geo': [1, 2, 3, 4],
+                'pair': [1, 2, 1, 2],
+                'response': [2, 5, 2, 4],
+                'spend': [1.5, 2.5, 1.5, 6]
+            })))
 
   def testMissingResponseVariable(self):
     with self.assertRaises(ValueError):
@@ -194,12 +217,12 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     self.assertTrue(result.equals(expected))
 
   def testCreateGeoPairsNoCV(self):
-    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
-        use_cross_validation=False)
-    geo_level_eval_data.sort_values(by='geo', inplace=True)
-    geo_level_eval_data.reset_index(drop=True, inplace=True)
+    self.test_class.create_geo_pairs(use_cross_validation=False)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.sort_index(axis=1).equals(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [1, 2, 1, 2],
@@ -207,7 +230,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                 'spend': [1.5, 2.5, 1.5, 6]
             })))
     self.assertTrue(
-        pairs.equals(
+        self.test_class.pairs.equals(
             pd.DataFrame({
                 'geo1': [1, 2],
                 'geo2': [3, 4],
@@ -216,12 +239,12 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             })))
 
   def testCreateGeoPairsCV(self):
-    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
-        use_cross_validation=True)
-    geo_level_eval_data.sort_values(by='geo', inplace=True)
-    geo_level_eval_data.reset_index(drop=True, inplace=True)
+    self.test_class.create_geo_pairs(use_cross_validation=True)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.sort_index(axis=1).equals(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [2, 1, 2, 1],
@@ -229,7 +252,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                 'spend': [1.5, 2.5, 1.5, 6]
             })))
     self.assertTrue(
-        pairs.equals(
+        self.test_class.pairs.equals(
             pd.DataFrame({
                 'geo1': [4, 1],
                 'geo2': [2, 3],
@@ -249,13 +272,13 @@ class TrimmedMatchDesignTest(unittest.TestCase):
 
     self.test_class._pretest_data = pd.concat(
         [self.test_class._pretest_data, add_geo], sort=False)
-    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
-        use_cross_validation=True)
-    geo_level_eval_data.sort_values(by='geo', inplace=True)
-    geo_level_eval_data.reset_index(drop=True, inplace=True)
-    pairs = pairs.round({'distance': 5})
+    self.test_class.create_geo_pairs(use_cross_validation=True)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
+    pairs = self.test_class.pairs.round({'distance': 5})
     self.assertTrue(
-        geo_level_eval_data.sort_index(axis=1).equals(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4, 5, 6],
                 'pair': [3, 1, 3, 1, 2, 2],
@@ -273,12 +296,12 @@ class TrimmedMatchDesignTest(unittest.TestCase):
 
   def testCreateGeoPairsMatchingMetric(self):
     self.test_class._matching_metrics = {'response': 1.0, 'spend': 0.5}
-    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
-        use_cross_validation=True)
-    geo_level_eval_data.sort_values(by='geo', inplace=True)
-    geo_level_eval_data.reset_index(drop=True, inplace=True)
+    self.test_class.create_geo_pairs(use_cross_validation=True)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.sort_index(axis=1).equals(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [2, 1, 2, 1],
@@ -286,7 +309,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                 'spend': [1.5, 2.5, 1.5, 6]
             })))
     self.assertTrue(
-        pairs.equals(
+        self.test_class.pairs.equals(
             pd.DataFrame({
                 'geo1': [4, 1],
                 'geo2': [2, 3],
@@ -300,12 +323,12 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         'response': 0,
         'spend': 0
     }
-    pairs, geo_level_eval_data = self.test_class.create_geo_pairs(
-        use_cross_validation=True)
-    geo_level_eval_data.sort_values(by='geo', inplace=True)
-    geo_level_eval_data.reset_index(drop=True, inplace=True)
+    self.test_class.create_geo_pairs(use_cross_validation=True)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
     self.assertTrue(
-        geo_level_eval_data.sort_index(axis=1).equals(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
             pd.DataFrame({
                 'geo': [1, 2, 3, 4],
                 'pair': [1, 1, 2, 2],
@@ -313,13 +336,276 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                 'spend': [1.5, 2.5, 1.5, 6]
             })))
     self.assertTrue(
-        pairs.equals(
+        self.test_class.pairs.equals(
             pd.DataFrame({
                 'geo1': [2, 4],
                 'geo2': [1, 3],
                 'distance': [1/8, 1/8],
                 'pair': [1, 2]
             })))
+
+  def testPassPairingWithDuplicatedGeos(self):
+    # geo 1 and 2 appear in two pairs.
+    pairs = pd.DataFrame({
+        'geo1': [1, 2, 2],
+        'geo2': [3, 4, 1],
+        'pair': [1, 2, 3]
+    })
+    with self.assertRaisesRegex(ValueError,
+                                r'Some geos are duplicated in the pairs.'):
+      TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          matching_metrics={'response': 1.0},
+          pairs=pairs)
+
+  def testPassPairingWithGeosNotInPretestData(self):
+    # geo 5 and 6 appear in the pairs but not in the pretest data.
+    pairs = pd.DataFrame({
+        'geo1': [1, 2, 5],
+        'geo2': [3, 4, 6],
+        'pair': [1, 2, 3]
+    })
+    with self.assertRaisesRegex(ValueError,
+                                r'The geos ' +
+                                r'{5, 6} appear ' +
+                                r'in the pairs but not in the pretest data.'):
+      TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          matching_metrics={'response': 1.0},
+          pairs=pairs)
+
+  def testCreateGeoLevelDataWhenPairsArePassed(self):
+    pairs = pd.DataFrame({
+        'geo1': [1, 2],
+        'geo2': [3, 4],
+        'pair': [1, 2]
+    })
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.test_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0},
+        pairs=pairs)
+    test_class.create_geo_level_eval_data()
+    test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
+    self.assertTrue(
+        test_class.geo_level_eval_data.sort_index(axis=1).equals(
+            pd.DataFrame({
+                'geo': [1, 2, 3, 4],
+                'pair': [1, 2, 1, 2],
+                'response': [2, 5, 2, 4],
+                'spend': [1.5, 2.5, 1.5, 6.0]
+            })))
+    self.assertTrue(
+        test_class.pairs.equals(
+            pd.DataFrame({
+                'geo1': [1, 2],
+                'geo2': [3, 4],
+                'pair': [1, 2]
+            })))
+
+  def testCreateGeoLevelDataRaisesError(self):
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.test_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0}
+        )
+    with self.assertRaisesRegex(ValueError, r'pairs are not specified'):
+      test_class.create_geo_level_eval_data()
+
+  def testCheckSameGeoLevelDataWhenPairsAreSpecifiedOrNot(self):
+    self.test_class._matching_metrics = {'response': 1.0, 'spend': 0.5}
+    self.test_class.create_geo_pairs(use_cross_validation=True)
+    self.test_class.create_geo_level_eval_data()
+    self.test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    self.test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
+
+    pairs_specified = pd.DataFrame({
+        'geo1': [1, 4],
+        'geo2': [3, 2],
+        'pair': [2, 1]
+    })
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.test_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0, 'spend': 0.5},
+        pairs=pairs_specified)
+    test_class.create_geo_level_eval_data()
+    test_class.geo_level_eval_data.sort_values(by='geo', inplace=True)
+    test_class.geo_level_eval_data.reset_index(drop=True, inplace=True)
+
+    self.assertTrue(
+        self.test_class.geo_level_eval_data.sort_index(axis=1).equals(
+            test_class.geo_level_eval_data.sort_index(axis=1)))
+    self.assertTrue(self.test_class.pairs[['geo1', 'geo2', 'pair']].equals(
+        test_class.pairs.reset_index(drop=True)))
+
+  def testSameRMSEWhenPairsAreSpecifiedOrNot(self):
+
+    test_class1 = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.nontrivial_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0},
+        pairs=None)
+
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+
+      test_class1._geox_type = geox_type
+      _, expected_detailed_results = test_class1.report_candidate_designs(
+          budget_list=[30, 40],
+          iroas_list=[0, 2],
+          use_cross_validation=True,
+          num_pairs_filtered_list=[0, 1, 100],
+          num_simulations=1000)
+
+      test_class2 = TrimmedMatchGeoXDesign(
+          geox_type,
+          pretest_data=self.nontrivial_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          matching_metrics={'response': 1.0},
+          pairs=test_class1.pairs)
+      _, detailed_results = test_class2.report_candidate_designs(
+          budget_list=[30, 40],
+          iroas_list=[0, 2],
+          use_cross_validation=True,
+          num_pairs_filtered_list=[0, 1, 100],
+          num_simulations=1000)
+
+      for key in detailed_results.keys():
+        self.assertTrue(
+            np.array_equal(detailed_results[key]['estimate'],
+                           expected_detailed_results[key]['estimate']))
+
+  def testSameRMSEWhenPairsAreSpecifiedOrNotDifferentGeoOrder(self):
+    test_class1 = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.nontrivial_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0},
+        pairs=None)
+
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+
+      test_class1._geox_type = geox_type
+      _, expected_detailed_results = test_class1.report_candidate_designs(
+          budget_list=[30, 40],
+          iroas_list=[0, 2],
+          use_cross_validation=True,
+          num_pairs_filtered_list=[0, 1, 100],
+          num_simulations=1000)
+
+      # change the order of geo1 and geo2 in some of the pairs
+      pairs = test_class1.pairs.copy()
+      pairs.loc[0:3, 'geo1'] = test_class1.pairs.loc[0:3, 'geo2']
+      pairs.loc[0:3, 'geo2'] = test_class1.pairs.loc[0:3, 'geo1']
+
+      test_class2 = TrimmedMatchGeoXDesign(
+          geox_type,
+          pretest_data=self.nontrivial_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          matching_metrics={'response': 1.0},
+          pairs=pairs)
+      _, detailed_results = test_class2.report_candidate_designs(
+          budget_list=[30, 40],
+          iroas_list=[0, 2],
+          use_cross_validation=True,
+          num_pairs_filtered_list=[0, 1, 100],
+          num_simulations=1000)
+
+      for key in detailed_results.keys():
+        self.assertTrue(
+            np.array_equal(detailed_results[key]['estimate'],
+                           expected_detailed_results[key]['estimate']))
+
+  def testComplexDesignWithPairing(self):
+    df = pd.read_csv(
+        'trimmed_match/example_datasets/example_data_for_design.csv',
+        parse_dates=['date'])
+    df['date'] = pd.to_datetime(df['date'])
+    for col in ['response', 'cost', 'geo']:
+      df[col] = pd.to_numeric(df[col])
+    df.rename(columns={'cost': 'spend'}, inplace=True)
+
+    test_class_no_pairing = TrimmedMatchGeoXDesign(
+        GeoXType.HOLD_BACK,
+        pretest_data=df,
+        time_window_for_design=TimeWindow('2020-01-01', '2020-12-29'),
+        time_window_for_eval=TimeWindow('2020-12-02', '2020-12-29'),
+        matching_metrics={'response': 1.0, 'spend': 0.01},
+        pairs=None)
+
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+
+      test_class_no_pairing._geox_type = geox_type
+      expected_results, expected_detailed_results = test_class_no_pairing.report_candidate_designs(
+          budget_list=[100000],
+          iroas_list=[0],
+          use_cross_validation=True,
+          num_pairs_filtered_list=[8],
+          num_simulations=1000)
+
+      geos = test_class_no_pairing.geo_level_eval_data.loc[
+          test_class_no_pairing.geo_level_eval_data['pair'] > 8, 'geo']
+      pairs = test_class_no_pairing.pairs.loc[
+          test_class_no_pairing.pairs['pair'] > 8,
+          ['geo1', 'geo2', 'pair']].reset_index(drop=True)
+      test_class_pairing = TrimmedMatchGeoXDesign(
+          geox_type,
+          pretest_data=df[df['geo'].isin(geos)],
+          time_window_for_design=TimeWindow('2020-01-01', '2020-12-29'),
+          time_window_for_eval=TimeWindow('2020-12-02', '2020-12-29'),
+          matching_metrics={'response': 1.0, 'spend': 0.01},
+          pairs=pairs)
+      results, detailed_results = test_class_pairing.report_candidate_designs(
+          budget_list=[100000],
+          iroas_list=[0],
+          use_cross_validation=True,
+          num_pairs_filtered_list=[0],
+          num_simulations=1000)
+      self.assertEqual(results['rmse'][0], expected_results['rmse'][0])
+      self.assertTrue(
+          np.array_equal(
+              detailed_results[(100000.0, 0.0, 0)]['estimate'],
+              expected_detailed_results[(100000.0, 0.0, 8)]['estimate']))
+
+  def testTooFewGeos(self):
+    """Checks an error is raised with less than 10 pairs."""
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+      self.test_class._geox_type = geox_type
+      with self.assertRaisesRegex(
+          ValueError,
+          r'the number of geos to design an experiment must be >= 20, got 4'):
+        self.test_class.report_candidate_designs(
+            budget_list=[30, 40],
+            iroas_list=[0, 2],
+            use_cross_validation=True,
+            num_pairs_filtered_list=[0, 1, 100],
+            num_simulations=1000)
 
   def testReportCandidateDesign(self):
     """Checks the calculation with zero RMSE."""
@@ -412,8 +698,10 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     self.assertTrue(
         self.test_class.geo_level_eval_data.equals(
             pd.DataFrame({
-                'geo': list(range(0, 20)),
-                'pair': sorted(list(range(1, 11)) * 2),
+                'geo':
+                    list(range(0, 20)),
+                'pair':
+                    sorted(list(range(1, 11)) * 2),
                 'response': [101 + 2 * x for x in range(0, 20)],
                 'spend': [1 + 2 * x for x in range(0, 20)],
                 'assignment': [
@@ -457,50 +745,65 @@ class TrimmedMatchDesignTest(unittest.TestCase):
     # geo 51 does not have any observation in the evaluation period, which could
     # cause aa_test_data and sign_test_data to be different. Sign_test_data
     # would miss any geo that doesn't have observation in the most recent weeks.
-    self.test_class._pretest_data = pd.DataFrame({
-        'date':
-            pd.to_datetime(
-                ['2019-01-01', '2019-10-01'] * 51 + ['2019-01-01']),
-        'geo': sorted(list(range(50)) * 2) + [50, 50, 51],
-        'response': list(range(100, 200)) + [.1, .1, .1],
-        'spend': list(range(100)) + [1, 1, 1]
-    })
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=pd.DataFrame({
+            'date':
+                pd.to_datetime(['2019-01-01', '2019-10-01'] * 51 +
+                               ['2019-01-01']),
+            'geo':
+                sorted(list(range(50)) * 2) + [50, 50, 51],
+            'response':
+                list(range(100, 200)) + [.1, .1, .1],
+            'spend':
+                [1] * 103
+        }),
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0})
 
-    _ = self.test_class.report_candidate_designs(
+    _ = test_class.report_candidate_designs(
         budget_list=[30],
         iroas_list=[0],
         use_cross_validation=True,
         num_pairs_filtered_list=[0],
         num_simulations=200)
-    _ = self.test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
+    _ = test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
     for index in range(26):
       self.assertSetEqual(
-          set(self.test_class.geo_level_eval_data['assignment'][(2 * index):(
+          set(test_class.geo_level_eval_data['assignment'][(2 * index):(
               2 * (index + 1))]), set([0, 1]))
 
   def testOutputCandidateDesignWithMissingObservationInPretest(self):
     """Checks that no error is raised if missing observation are present."""
     # geo 51 does not have any observation in the pretest period, which could
     # cause aa_test_data and sign_test_data to be different.
-    self.test_class._pretest_data = pd.DataFrame({
-        'date':
-            pd.to_datetime(
-                ['2019-01-01', '2019-10-01'] * 51 + ['2019-10-01']),
-        'geo': sorted(list(range(50)) * 2) + [50, 50, 51],
-        'response': sorted(list(range(50)) * 2) + [0.1, 1.1, .1],
-        'spend': list(range(100)) + [1, 2, 1]
-    })
-
-    _ = self.test_class.report_candidate_designs(
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=pd.DataFrame({
+            'date':
+                pd.to_datetime(['2019-01-01', '2019-10-01'] * 51 +
+                               ['2019-10-01']),
+            'geo':
+                sorted(list(range(50)) * 2) + [50, 50, 51],
+            'response':
+                sorted(list(range(50)) * 2) + [0.1, 1.1, .1],
+            'spend':
+                [1] * 103
+        }),
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'response': 1.0})
+    _ = test_class.report_candidate_designs(
         budget_list=[30],
         iroas_list=[0],
         use_cross_validation=True,
         num_pairs_filtered_list=[0],
         num_simulations=200)
-    _ = self.test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
+    _ = test_class.output_chosen_design(num_pairs_filtered=0, base_seed=0)
     for index in range(26):
       self.assertSetEqual(
-          set(self.test_class.geo_level_eval_data['assignment'][(2 * index):(
+          set(test_class.geo_level_eval_data['assignment'][(2 * index):(
               2 * (index + 1))]), set([0, 1]))
 
   def testOutputCandidateDesignWithMissingObservationDifferentPeriods(self):
@@ -519,7 +822,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             'response':
                 list(range(100, 200)) + [.1, .1, .1],
             'spend':
-                list(range(100)) + [1, 1, 1]
+                [1] * 103
         }),
         time_window_for_design=self.design_window,
         time_window_for_eval=TimeWindow(

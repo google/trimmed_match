@@ -41,14 +41,14 @@ Example usage:
     num_pairs_filtered_list)
 """
 
+import itertools
 from typing import Dict, List, Tuple
-
 import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-
 from trimmed_match.design import common_classes
 from trimmed_match.design import geo_assignment
 from trimmed_match.design import matched_pairs_rmse
@@ -75,7 +75,8 @@ class TrimmedMatchGeoXDesign(object):
                time_window_for_eval: TimeWindow,
                response: str = 'response',
                spend_proxy: str = 'spend',
-               matching_metrics=None):
+               matching_metrics: Dict[str, float] = None,
+               pairs: pd.DataFrame = None):
     """Initializes TrimmedMatchGeoXDesign.
 
     Args:
@@ -88,6 +89,8 @@ class TrimmedMatchGeoXDesign(object):
       response: str, a column name in pretest_data, by default 'response'.
       spend_proxy: str, a column name in pretest_data, by default 'spend'.
       matching_metrics: dict, mapping a column name to a numeric weight.
+      pairs: optional dataframe with columns (geo1, geo2, pair) containing the
+        pairs of geos to use for the power analysis.
 
     Raises:
       ValueError: response or spend_proxy is not in pretest_data.
@@ -126,9 +129,33 @@ class TrimmedMatchGeoXDesign(object):
     if self._spend_proxy not in self._matching_metrics:
       self._matching_metrics[self._spend_proxy] = 0.0
 
+    geos_and_dates = pd.DataFrame(
+        itertools.product(
+            self._pretest_data.geo.unique(),
+            self._pretest_data.date.unique()),
+        columns=['geo', 'date'])
+    self._pretest_data = pd.merge(
+        geos_and_dates, self._pretest_data, on=['date', 'geo'],
+        how='left').fillna(
+            dict([(x, 0) for x in [self._response, self._spend_proxy] +
+                  list(self._matching_metrics.keys())
+                 ])).sort_values(by=['date', 'geo'])
     self._time_window_for_design = time_window_for_design
     self._time_window_for_eval = time_window_for_eval
-    self._pairs = None
+
+    if pairs is not None:
+      geos_in_pairs = set(pairs['geo1']) | set(pairs['geo2'])
+      if not geos_in_pairs.issubset(set(self._pretest_data['geo'])):
+        raise ValueError('The geos ' +
+                         f'{geos_in_pairs - set(self._pretest_data["geo"])} ' +
+                         'appear in the pairs but not in the pretest data.')
+      if len(geos_in_pairs) != (len(pairs['geo1']) + len(pairs['geo2'])):
+        raise ValueError('Some geos are duplicated in the pairs.')
+    # pairs, a dataframe with columns (geo1, geo2, pair) containing the
+    # pairs of geos to use for the power analysis.
+    self._pairs = pairs
+    # geo_level_eval_data, a pd.DataFrame with columns (geo, response,
+    # spend, pair) for evaluation of the RMSE.
     self._geo_level_eval_data = None
     self._num_pairs_filtered = 0
 
@@ -161,7 +188,7 @@ class TrimmedMatchGeoXDesign(object):
 
   def create_geo_pairs(
       self,
-      use_cross_validation: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
+      use_cross_validation: bool = True):
     """Creates geo pairs using pretest data and data to evaluate the RMSE.
 
     Args:
@@ -170,11 +197,6 @@ class TrimmedMatchGeoXDesign(object):
         otherwise geo pairing uses pretest data during time_window_for_design
         and time_window_for_eval.
 
-    Returns:
-      pairs: a pd.DataFrame with columns (pair, geo1, geo2, distance).
-      geo_level_eval_data: a pd.DataFrame with columns (geo, response, spend,
-      pair)
-        for evaluation of the RMSE.
     """
     training_and_evaluation = (
         self._pretest_data['date'].between(
@@ -228,25 +250,37 @@ class TrimmedMatchGeoXDesign(object):
     npairs = geopairs_left.shape[0]
     pairs['pair'] = range(1, npairs + 1)
 
+    self._pairs = pairs
+
+  def create_geo_level_eval_data(self):
+    """Creates geo level data to evaluate the RMSE.
+
+    Create geo_level_eval_data, a pd.DataFrame with columns (geo, response,
+    spend, pair) for evaluation of the RMSE.
+    """
+    if self.pairs is None:
+      raise ValueError('pairs are not specified.')
+
+    self.pairs.sort_values(by='pair', inplace=True)
+    pretest = self._pretest_data[self._pretest_data['date'].between(
+        self._time_window_for_eval.first_day,
+        self._time_window_for_eval.last_day)].groupby(
+            'geo', as_index=False).sum()
+
     geo_to_pair = pd.DataFrame({
-        'geo': pairs['geo1'].tolist() + pairs['geo2'].tolist(),
-        'pair': pairs['pair'].tolist() + pairs['pair'].tolist()
+        'geo': self.pairs['geo1'].tolist() + self.pairs['geo2'].tolist(),
+        'pair': self.pairs['pair'].tolist() + self.pairs['pair'].tolist()
     })
 
     geo_level_eval_data = pd.merge(
-        geos_ordered[[
-            'geo', 'evaluation_' + self._response,
-            'evaluation_' + self._spend_proxy
-        ]],
+        pretest[['geo', self._response, self._spend_proxy]],
         geo_to_pair,
         on='geo').rename(columns={
-            'evaluation_' + self._response: 'response',
-            'evaluation_' + self._spend_proxy: 'spend'
-        }).sort_values(by='pair')
+            self._response: 'response',
+            self._spend_proxy: 'spend'
+        }).sort_values(by=['pair', 'geo'])
 
-    self._pairs = pairs
     self._geo_level_eval_data = geo_level_eval_data
-    return (pairs, geo_level_eval_data)
 
   def report_candidate_designs(
       self,
@@ -284,12 +318,16 @@ class TrimmedMatchGeoXDesign(object):
         pd.DataFrames have columns (simulation, estimate, trim_rate, std_error,
         conf_interval_low, conf_interval_up, ci_level).
     """
-    pairs, geo_level_eval_data = self.create_geo_pairs(use_cross_validation)
-    max_num_pairs_to_filter = len(pairs.index) - _MIN_NUM_PAIRS
+    if self.pairs is None:
+      self.create_geo_pairs(use_cross_validation)
+
+    self.create_geo_level_eval_data()
+
+    max_num_pairs_to_filter = len(self.pairs.index) - _MIN_NUM_PAIRS
     if max_num_pairs_to_filter < 0:
       raise ValueError(
           'the number of geos to design an experiment must be >= ' +
-          f'{_MIN_NUM_PAIRS * 2}, got {len(pairs.index) * 2}')
+          f'{_MIN_NUM_PAIRS * 2}, got {len(self.pairs.index) * 2}')
 
     if max(num_pairs_filtered_list) > max_num_pairs_to_filter:
       not_recommended_filters = [
@@ -304,15 +342,15 @@ class TrimmedMatchGeoXDesign(object):
           if filter <= max_num_pairs_to_filter
       ]
 
-    total_spend = geo_level_eval_data['spend'].sum()
+    total_spend = self.geo_level_eval_data['spend'].sum()
     results = []
     detailed_results = {}
     for iroas in iroas_list:
       for budget in budget_list:
         for num_pairs_filtered in num_pairs_filtered_list:
 
-          unfiltered = geo_level_eval_data['pair'] > num_pairs_filtered
-          geo_level_eval_data_unfiltered = geo_level_eval_data.loc[
+          unfiltered = self.geo_level_eval_data['pair'] > num_pairs_filtered
+          geo_level_eval_data_unfiltered = self.geo_level_eval_data.loc[
               unfiltered, :]
 
           matched_rmse_class = MatchedPairsRMSE(self._geox_type,

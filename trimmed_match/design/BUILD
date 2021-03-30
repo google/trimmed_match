@@ -106,10 +106,11 @@ py_test(
 
 py_test(
     name = "trimmed_match_design_test",
-    size = "small",
+    size = "medium",
     srcs = [
         "tests/trimmed_match_design_test.py",
     ],
+    data = ["//trimmed_match/example_datasets:test_data"],
     python_version = "PY3",
     deps = [
         ":common_classes",

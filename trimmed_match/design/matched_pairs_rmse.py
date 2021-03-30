@@ -134,7 +134,8 @@ class MatchedPairsRMSE(object):
     if len(set(geo_pairs_eval_data.geo)) != geo_pairs_eval_data.shape[0]:
       raise ValueError("Geos are not unique in geo_pairs_eval_data")
 
-    sorted_geo_pairs_eval_data = geo_pairs_eval_data.sort_values("pair")
+    sorted_geo_pairs_eval_data = geo_pairs_eval_data.sort_values(
+        by=["pair", "geo"])
     if not _is_paired(list(sorted_geo_pairs_eval_data.pair)):
       raise KeyError("Geos in geo_pairs_eval_data are not paired properly")
 

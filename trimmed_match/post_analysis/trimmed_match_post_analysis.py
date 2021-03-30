@@ -175,3 +175,78 @@ def report_experiment_results(results: TrimmedMatchResults,
       util.human_readable_number(results.treatment_response)))
   print('\nincremental response as % of treatment response = {:.2f}%\n'.format(
       results.lift * 100 / results.treatment_response))
+
+
+def check_input_data(
+    data: pd.DataFrame,
+    group_control: int = common_classes.GeoAssignment.CONTROL,
+    group_treatment: int = common_classes.GeoAssignment.TREATMENT
+) -> pd.DataFrame:
+  """Returns data to be analysed using Trimmed Match with data imputation.
+
+  Args:
+    data: data frame with columns (geo, response, cost, pair, assignment).
+    group_control: value representing the control group in the data.
+    group_treatment: value representing the treatment group in the data.
+
+  Returns:
+    geox_data: data frame with columns (geo, response, cost, pair,
+      assignment) and imputed missing data.
+
+  Raises:
+    ValueError: if the number of control and treatment geos is different, if any
+    geo is duplicated, if any pair does have one geo per group, or if one of the
+    groups is missing.
+  """
+  mandatory_columns = set(['geo', 'response', 'cost', 'pair', 'assignment'])
+  if not mandatory_columns.issubset(data.columns):
+    raise ValueError('The mandatory columns ' +
+                     f'{mandatory_columns - set(data.columns)} are missing ' +
+                     'from the input data.')
+
+  if not set([group_treatment, group_control]).issubset(
+      set(data['assignment'].unique())):
+    raise ValueError('The data do not have observations for the two groups.' +
+                     'Check the data and the values used to indicate the ' +
+                     'assignments for treatment and control. The labels ' +
+                     'found in the data in input are ' +
+                     f'{list(data["assignment"].unique())}, and the expected ' +
+                     f'labels are: Treatment={group_treatment}, ' +
+                     f'Control={group_control}')
+
+  grouped_data = data[['pair', 'assignment', 'geo']].drop_duplicates()
+
+  # remove any assignment outside treatment/control
+  grouped_data = grouped_data[grouped_data['assignment'].isin(
+      [group_control, group_treatment])]
+
+  if any(grouped_data['geo'].duplicated()):
+    raise ValueError(
+        'Some geos are duplicated and appear in multiple pairs or groups.')
+
+  expected = pd.DataFrame(
+      data=itertools.product(grouped_data.pair.unique(),
+                             [group_control, group_treatment]),
+      columns=['pair', 'assignment'])
+  if not np.array_equal(expected.sort_values(by=['pair', 'assignment']),
+                        grouped_data[['pair', 'assignment']].sort_values(
+                            by=['pair', 'assignment'])):
+    raise ValueError('Some pairs do not have one geo for each group.')
+
+  geos_and_dates = pd.merge(
+      data[['date']].drop_duplicates().assign(key=1),
+      data[['geo', 'pair', 'assignment']].drop_duplicates().assign(key=1),
+      on='key',
+      how='outer').drop(
+          'key', axis=1)
+  geox_data = pd.merge(
+      geos_and_dates,
+      data,
+      on=['date', 'geo', 'pair', 'assignment'],
+      how='left').fillna({
+          'response': 0.0,
+          'cost': 0.0
+      })
+
+  return geox_data[geox_data['assignment'].isin(
+      [group_control, group_treatment])]

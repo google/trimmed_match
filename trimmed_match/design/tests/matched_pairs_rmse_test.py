@@ -227,6 +227,27 @@ class MatchedPairsRMSETest(unittest.TestCase):
     (report, _) = mpr.report(num_simulations=100, trim_rate=0.0)
     self.assertAlmostEqual(1.5, report, delta=0.1)
 
+  def testReportNoisyDifferentGeoOrder(self):
+    """Checks the calculation with nonzero RMSE when geo_pairs_eval_data order is changed."""
+    mpr = MatchedPairsRMSE(
+        GeoXType.HOLD_BACK,
+        self._geo_pairs_eval_data,
+        self._budget,
+        self._hypothesized_iroas,
+        base_seed=100000)
+    (report, _) = mpr.report(num_simulations=100)
+    mpr_sorted = MatchedPairsRMSE(
+        GeoXType.HOLD_BACK,
+        self._geo_pairs_eval_data.sort_values(
+            by=["pair", "geo"], ascending=[True, False]),
+        self._budget,
+        self._hypothesized_iroas,
+        base_seed=100000)
+    (report_sorted, _) = mpr_sorted.report(num_simulations=100)
+
+    self.assertAlmostEqual(
+        abs(report - report_sorted) / report_sorted, 0, delta=0.00001)
+
   def testReportTrimmedPairs(self):
     """Checks the reported trimmed pairs in a simulation."""
     dataframe = pd.DataFrame({

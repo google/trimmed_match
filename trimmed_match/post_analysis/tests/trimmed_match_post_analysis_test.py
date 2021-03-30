@@ -51,6 +51,14 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         'assignment': [0, 1, 0, 1, 0, 1, 0, 1],
         'period': [1, 1, 1, 1, 1, 1, 1, 1],
     })
+    self.df = pd.DataFrame({
+        'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
+        'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+        'response': [10, 10, 10, 20, 20, 20, 30, 30, 30, 40, 40, 40],
+        'cost': [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
+        'pair': [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
+        'assignment': [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+    })
     self.data = trimmed_match_post_analysis.prepare_data_for_post_analysis(
         self.dataframe, exclude_cooldown=True)
 
@@ -238,6 +246,147 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
           mock_print.call_args_list[6][0][0],
           '\nincremental response as % of treatment response = 16.74%\n')
 
+  def testCheckInputData(self):
+    temp_df = self.df.copy()
+    # remove one observation for geo #2
+    temp_df = temp_df[~((temp_df['geo'] == 2) &
+                        (temp_df['date'] == '2020-10-10'))]
+    geox_data = trimmed_match_post_analysis.check_input_data(temp_df)
+    expected_df = pd.DataFrame({
+        'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
+        'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+        'pair': [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
+        'assignment': [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+        'response': [10, 10, 10, 20, 0.0, 20, 30, 30, 30, 40, 40, 40],
+        'cost': [1.0, 1.0, 1.0, 2.0, 0.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
+    }).sort_values(by=['date', 'geo']).reset_index(drop=True)
+    self.assertTrue(geox_data.equals(expected_df))
+
+  def testCheckInputDataOrder(self):
+    temp = pd.DataFrame({
+        'date': pd.date_range('2021-01-01', periods=4),
+        'pair': [2, 2, 1, 1],
+        'assignment': [1, 2, 2, 1],
+        'geo': [1, 2, 3, 4],
+        'response': 0,
+        'cost': 0
+    })
+    geox_data = trimmed_match_post_analysis.check_input_data(
+        temp, group_control=1, group_treatment=2)
+    self.assertTrue(
+        np.array_equal(
+            geox_data[['date', 'geo', 'pair', 'assignment']],
+            pd.DataFrame({
+                'date': np.repeat(temp['date'], 4),
+                'geo': [1, 2, 3, 4] * 4,
+                'pair': [2, 2, 1, 1] * 4,
+                'assignment': [1, 2, 2, 1] * 4
+            })))
+
+  def testCheckInputDataColumns(self):
+    temp_df = self.df.copy()
+    # remove the column assignment
+    temp_df.drop(columns='assignment', inplace=True)
+    with self.assertRaisesRegex(
+        ValueError,
+        'The mandatory columns {\'assignment\'} are missing from the input data'
+    ):
+      trimmed_match_post_analysis.check_input_data(temp_df)
+
+  def testCheckInputDataCorrectGroupLabels(self):
+    with self.assertRaisesRegex(
+        ValueError,
+        r'The data do not have observations for the two groups.' +
+        r'Check the data and the values used to indicate the ' +
+        r'assignments for treatment and control. The labels ' +
+        r'found in the data in input are ' +
+        r'\[0, 1\], and the expected labels ' +
+        r'are: Treatment=1, Control=2'):
+      trimmed_match_post_analysis.check_input_data(
+          self.df, group_control=2, group_treatment=1)
+
+  def testCheckUnequalGroupSizesInInputData(self):
+    temp_df = self.df.copy()
+    # remove geo #2 which is in treatment
+    temp_df = temp_df[temp_df['geo'] != 2]
+    with self.assertRaisesRegex(ValueError,
+                                r'Some pairs do not have one geo for ' +
+                                r'each group.'):
+      trimmed_match_post_analysis.check_input_data(temp_df)
+
+    temp_df = self.df.copy()
+    # remove geo #1 which is in control
+    temp_df = temp_df[temp_df['geo'] != 1]
+    with self.assertRaisesRegex(ValueError,
+                                r'Some pairs do not have one geo for ' +
+                                r'each group.'):
+      trimmed_match_post_analysis.check_input_data(temp_df)
+
+  def testCheckGeosPerPairInInputData(self):
+    temp_df = self.df.copy()
+    # reassign geo #2 which is in treatment, and geo #3 which is control
+    temp_df.loc[temp_df['geo'] == 2, 'assignment'] = 0
+    temp_df.loc[temp_df['geo'] == 3, 'assignment'] = 1
+    with self.assertRaisesRegex(
+        ValueError, r'Some pairs do not have one geo for each group.'):
+      trimmed_match_post_analysis.check_input_data(temp_df)
+
+  def testManyGeosPerPairWithSameAssignmentInInputData(self):
+    temp_df = self.df.copy()
+    # add one additional geo to pairs #1 and #4
+    temp_df = temp_df.append(pd.DataFrame({
+        'date': ['2020-10-10', '2020-10-10'],
+        'geo': [10, 9],
+        'response': [10, 11],
+        'cost': [1.0, 2.0],
+        'pair': [1, 4],
+        'assignment': [0, 1],
+        'period': [1, 1],
+    }))
+    with self.assertRaisesRegex(
+        ValueError, r'Some pairs do not have one geo for each group.'):
+      trimmed_match_post_analysis.check_input_data(temp_df)
+
+  def testDuplicateGeoInInputData(self):
+    temp_df = self.df.copy()
+    # change geo #4 to geo #2, so that geo #2 is duplicated
+    temp_df.loc[temp_df['geo'] == 4, 'geo'] = 2
+    # change geo #5 to geo #3, so that geo #3 is duplicated
+    temp_df.loc[temp_df['geo'] == 5, 'geo'] = 3
+    with self.assertRaisesRegex(
+        ValueError, r'Some geos are duplicated and appear in multiple pairs.'):
+      trimmed_match_post_analysis.check_input_data(temp_df)
+
+  def testGeosNotInExperimentAreExcluded(self):
+    temp_df = self.df.copy()
+    # add two additional geos with assignment -1 in new and different pairs.
+    temp_df = temp_df.append(pd.DataFrame({
+        'date': ['2020-10-10', '2020-10-10'],
+        'geo': [9, 10],
+        'response': [10, 11],
+        'cost': [1.0, 2.0],
+        'pair': [100, 101],
+        'assignment': [-1, -1],
+    }))
+    geox_data = trimmed_match_post_analysis.check_input_data(temp_df)
+    expected_df = pd.DataFrame({
+        'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
+        'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+        'pair': [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
+        'assignment': [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+        'response': [10, 10, 10, 20, 20.0, 20, 30, 30, 30, 40, 40, 40],
+        'cost': [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
+    }).sort_values(by=['date', 'geo']).reset_index(drop=True)
+    self.assertTrue(geox_data.reset_index(drop=True).equals(expected_df))
+
+  def testDuplicateGeoInSamePair(self):
+    temp_df = self.df.copy()
+    # change geo #1 to geo #2, so that geo #2 is duplicated in pair 1 with
+    # assignment 0 and 1
+    temp_df.loc[temp_df['geo'] == 1, 'geo'] = 2
+    with self.assertRaisesRegex(
+        ValueError, r'Some geos are duplicated and appear in multiple pairs.'):
+      trimmed_match_post_analysis.check_input_data(temp_df)
 
 if __name__ == '__main__':
   unittest.main()

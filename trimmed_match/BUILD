@@ -1,6 +1,9 @@
 licenses(["notice"])
 
-exports_files(["LICENSE"])
+exports_files([
+    "LICENSE",
+    "example_datasets",
+])
 
 py_library(
     name = "estimator",
