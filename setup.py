@@ -25,7 +25,7 @@ import sys
 import setuptools
 from setuptools.command import build_ext
 
-__version__ = '1.0.0'
+__version__ = '1.0.0_test'
 
 PROJECT_NAME = 'trimmed_match'
 
