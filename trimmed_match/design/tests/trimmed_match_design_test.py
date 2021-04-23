@@ -94,6 +94,20 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         'spend': 0.01,
     })
 
+  def testMatchingMetricsWithCustomColumnNames(self):
+    default_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=self.test_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+        matching_metrics={'metric': 1.0})
+
+    self.assertDictEqual(default_class._matching_metrics, {
+        'response': 0.0,
+        'spend': 0.0,
+        'metric': 1.0,
+    })
+
   def testPropertyGetter(self):
     # test that they are None at initialization of the class
     self.assertIsNone(self.test_class.pairs)
@@ -121,7 +135,9 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             })))
 
   def testMissingResponseVariable(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(
+        ValueError,
+        r'revenue is not available in pretest_data'):
       _ = TrimmedMatchGeoXDesign(
           GeoXType.HEAVY_UP,
           pretest_data=self.test_data,
@@ -131,33 +147,15 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           matching_metrics={'response': 1.0})
 
   def testMissingSpendProxy(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(
+        ValueError,
+        r'cost is not available in pretest_data'):
       _ = TrimmedMatchGeoXDesign(
           GeoXType.HEAVY_UP,
           pretest_data=self.test_data,
           time_window_for_design=self.design_window,
           time_window_for_eval=self.evaluation_window,
           spend_proxy='cost',
-          matching_metrics={'response': 1.0})
-
-  def testInvalidResponseVariable(self):
-    with self.assertRaises(ValueError):
-      _ = TrimmedMatchGeoXDesign(
-          GeoXType.HEAVY_UP,
-          pretest_data=self.test_data,
-          time_window_for_design=self.design_window,
-          time_window_for_eval=self.evaluation_window,
-          response='unknown',
-          matching_metrics={'response': 1.0})
-
-  def testInvalidSpendProxy(self):
-    with self.assertRaises(ValueError):
-      _ = TrimmedMatchGeoXDesign(
-          GeoXType.HEAVY_UP,
-          pretest_data=self.test_data,
-          time_window_for_design=self.design_window,
-          time_window_for_eval=self.evaluation_window,
-          spend_proxy='unknown',
           matching_metrics={'response': 1.0})
 
   def testZeroSpendProxy(self):
@@ -178,7 +176,9 @@ class TrimmedMatchDesignTest(unittest.TestCase):
   def testInvalidValues(self):
     pretest_data = self.test_data.copy()
     pretest_data['revenue'] = [1, 2, 3, 4, 5, 6, 7, 'nan']
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(
+        ValueError,
+        r'Unable to convert column revenue to numeric.'):
       _ = TrimmedMatchGeoXDesign(
           GeoXType.HEAVY_UP,
           pretest_data=pretest_data,
@@ -199,7 +199,9 @@ class TrimmedMatchDesignTest(unittest.TestCase):
 
     pretest_data = pd.concat(
         [self.test_class._pretest_data, add_geo], sort=False)
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(
+        ValueError,
+        r'Number of geos must be even, but got 5.'):
       _ = TrimmedMatchGeoXDesign(
           GeoXType.HEAVY_UP,
           pretest_data=pretest_data,
@@ -472,7 +474,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0, 2],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
-          num_simulations=1000)
+          num_simulations=100)
 
       test_class2 = TrimmedMatchGeoXDesign(
           geox_type,
@@ -486,7 +488,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0, 2],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
-          num_simulations=1000)
+          num_simulations=100)
 
       for key in detailed_results.keys():
         self.assertTrue(
@@ -512,7 +514,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0, 2],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
-          num_simulations=1000)
+          num_simulations=100)
 
       # change the order of geo1 and geo2 in some of the pairs
       pairs = test_class1.pairs.copy()
@@ -531,7 +533,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0, 2],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
-          num_simulations=1000)
+          num_simulations=100)
 
       for key in detailed_results.keys():
         self.assertTrue(
@@ -565,7 +567,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0],
           use_cross_validation=True,
           num_pairs_filtered_list=[8],
-          num_simulations=1000)
+          num_simulations=100)
 
       geos = test_class_no_pairing.geo_level_eval_data.loc[
           test_class_no_pairing.geo_level_eval_data['pair'] > 8, 'geo']
@@ -584,7 +586,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0],
           use_cross_validation=True,
           num_pairs_filtered_list=[0],
-          num_simulations=1000)
+          num_simulations=100)
       self.assertEqual(results['rmse'][0], expected_results['rmse'][0])
       self.assertTrue(
           np.array_equal(
@@ -605,7 +607,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             iroas_list=[0, 2],
             use_cross_validation=True,
             num_pairs_filtered_list=[0, 1, 100],
-            num_simulations=1000)
+            num_simulations=100)
 
   def testReportCandidateDesign(self):
     """Checks the calculation with zero RMSE."""
@@ -622,7 +624,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           iroas_list=[0, 2],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
-          num_simulations=1000)
+          num_simulations=100)
 
       expected_results = pd.DataFrame({
           'num_pairs_filtered': [0, 1] * 4,
@@ -644,16 +646,15 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             value['estimate'].mean(), iroas, delta=0.05 + 0.1 * iroas)
 
   def testInsufficientNumberOfGeos(self):
-    with self.assertRaises(ValueError) as cm:
+    with self.assertRaisesRegex(
+        ValueError,
+        r'the number of geos to design an experiment must be >= 20, got 4'):
       self.test_class.report_candidate_designs(
           budget_list=[30, 40],
           iroas_list=[0, 2],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
-          num_simulations=1000)
-    self.assertEqual(
-        str(cm.exception),
-        'the number of geos to design an experiment must be >= 20, got 4')
+          num_simulations=100)
 
   def testPlotCandidateDesign(self):
     """Check the function plot_candidate_design outputs a dict of axes."""
@@ -788,8 +789,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                 sorted(list(range(50)) * 2) + [50, 50, 51],
             'response':
                 sorted(list(range(50)) * 2) + [0.1, 1.1, .1],
-            'spend':
-                [1] * 103
+            'spend': [1] * 100 + [1, 2, 3]
         }),
         time_window_for_design=self.design_window,
         time_window_for_eval=self.evaluation_window,

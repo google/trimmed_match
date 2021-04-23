@@ -32,6 +32,7 @@ py_library(
         ":geo_assignment",
         ":matched_pairs_rmse",
         ":plot_utilities",
+        ":util",
     ],
 )
 

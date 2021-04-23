@@ -185,12 +185,12 @@ def check_input_data(
   """Returns data to be analysed using Trimmed Match with data imputation.
 
   Args:
-    data: data frame with columns (geo, response, cost, pair, assignment).
+    data: data frame with columns (date, geo, response, cost, pair, assignment).
     group_control: value representing the control group in the data.
     group_treatment: value representing the treatment group in the data.
 
   Returns:
-    geox_data: data frame with columns (geo, response, cost, pair,
+    geox_data: data frame with columns (date, geo, response, cost, pair,
       assignment) and imputed missing data.
 
   Raises:
@@ -198,7 +198,8 @@ def check_input_data(
     geo is duplicated, if any pair does have one geo per group, or if one of the
     groups is missing.
   """
-  mandatory_columns = set(['geo', 'response', 'cost', 'pair', 'assignment'])
+  mandatory_columns = set(
+      ['date', 'geo', 'response', 'cost', 'pair', 'assignment'])
   if not mandatory_columns.issubset(data.columns):
     raise ValueError('The mandatory columns ' +
                      f'{mandatory_columns - set(data.columns)} are missing ' +

@@ -41,7 +41,6 @@ Example usage:
     num_pairs_filtered_list)
 """
 
-import itertools
 from typing import Dict, List, Tuple
 import warnings
 
@@ -53,6 +52,7 @@ from trimmed_match.design import common_classes
 from trimmed_match.design import geo_assignment
 from trimmed_match.design import matched_pairs_rmse
 from trimmed_match.design import plot_utilities
+from trimmed_match.design import util
 
 # Minimum number of geo pairs.
 _DEFAULT_CONFIDENCE_LEVEL = 0.8
@@ -114,14 +114,8 @@ class TrimmedMatchGeoXDesign(object):
       matching_metrics = {response: 1.0, spend_proxy: 0.01}
 
     self._geox_type = geox_type
-    self._pretest_data = pretest_data.copy()
     self._response = response
     self._spend_proxy = spend_proxy
-    for metric in [self._response, spend_proxy]:
-      try:
-        self._pretest_data[metric] = pd.to_numeric(self._pretest_data[metric])
-      except:
-        raise ValueError(f'Unable to convert column {metric} to numeric.')
 
     self._matching_metrics = matching_metrics.copy()
     if self._response not in self._matching_metrics:
@@ -129,17 +123,8 @@ class TrimmedMatchGeoXDesign(object):
     if self._spend_proxy not in self._matching_metrics:
       self._matching_metrics[self._spend_proxy] = 0.0
 
-    geos_and_dates = pd.DataFrame(
-        itertools.product(
-            self._pretest_data.geo.unique(),
-            self._pretest_data.date.unique()),
-        columns=['geo', 'date'])
-    self._pretest_data = pd.merge(
-        geos_and_dates, self._pretest_data, on=['date', 'geo'],
-        how='left').fillna(
-            dict([(x, 0) for x in [self._response, self._spend_proxy] +
-                  list(self._matching_metrics.keys())
-                 ])).sort_values(by=['date', 'geo'])
+    self._pretest_data = util.check_input_data(
+        pretest_data, list(self._matching_metrics.keys()))
     self._time_window_for_design = time_window_for_design
     self._time_window_for_eval = time_window_for_eval
 

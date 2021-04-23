@@ -16,9 +16,10 @@
 """Utilities functions to manipulate the data in the colab."""
 
 import datetime
+import itertools
 import operator
-
 from typing import List
+
 import dataclasses
 import numpy as np
 import pandas as pd
@@ -548,3 +549,49 @@ def format_design_table(designs: pd.DataFrame,
   ]
 
   return format_table(designs, formatting_options)
+
+
+def check_input_data(
+    data: pd.DataFrame,
+    numeric_columns_to_impute: List[str] = None) -> pd.DataFrame:
+  """Returns data to be analysed using Trimmed Match with data imputation.
+
+  Args:
+    data: data frame with columns (date, geo) and any column specified in
+      numeric_columns_to_impute, which should contain at least the columns with
+      response and spend information if they have a different name than
+      'response' and 'cost', respectively.
+    numeric_columns_to_impute: list of columns for which data imputation must be
+      performed.
+
+  Returns:
+    data frame with columns (date, geo, response, cost) and imputed missing
+    data.
+
+  Raises:
+    ValueError: if one of the mandatory columns is missing.
+  """
+  numeric_columns_to_impute = numeric_columns_to_impute or ['response', 'cost']
+  mandatory_columns = set(['date', 'geo'] + numeric_columns_to_impute)
+  if not mandatory_columns.issubset(data.columns):
+    raise ValueError('The mandatory columns ' +
+                     f'{mandatory_columns - set(data.columns)} are missing ' +
+                     'from the input data.')
+
+  data['date'] = pd.to_datetime(data['date'])
+  for column in ['geo'] + numeric_columns_to_impute:
+    try:
+      data[column] = pd.to_numeric(data[column])
+    except:
+      raise ValueError(f'Unable to convert column {column} to numeric.')
+
+  geos_and_dates = pd.DataFrame(
+      itertools.product(data['date'].unique(), data['geo'].unique()),
+      columns=['date', 'geo'])
+  data = pd.merge(
+      geos_and_dates, data, on=['date', 'geo'],
+      how='left').fillna(dict([
+          (x, 0) for x in numeric_columns_to_impute
+      ])).sort_values(by=['date', 'geo']).reset_index(drop=True)
+
+  return data

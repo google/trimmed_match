@@ -18,6 +18,7 @@
 See the tech details in https://ai.google/research/pubs/pub48448/.
 """
 from typing import List, Set
+import warnings
 
 import dataclasses
 import numpy as np
@@ -74,6 +75,9 @@ class Report:
                                           self.conf_interval_up)
 
 
+_VectorPerturb = lambda x, y: (x + y) * (1 + y)
+
+
 class TrimmedMatch(object):
   """The TrimmedMatch estimator.
 
@@ -101,17 +105,75 @@ class TrimmedMatch(object):
       ValueError: the lengths of delta_response and delta_spend differ, or
       max_trim_rate is negative.
     """
+
+    def HasTies():
+      """Checks if delta_spend or {theta[i,j]: i<j} has duplicated values.
+
+      Note theta[i,j] is the ratio of (delta_response[i] - delta_response[j]) to
+      (delta_spend[i] - delta_spend[j]), see Lemma 2 in
+      https://arxiv.org/pdf/1908.02922.pdf.
+
+      Returns:
+        2 if ties exist in delta_spend
+        1 if ties exist in thetaij but not in delta_spend
+        0 otherwise.
+      """
+      dresponse = np.array(delta_response)
+      dspend = np.array(delta_spend)
+
+      # check ties in delta_spend
+      dspend_has_ties = (len(np.unique(dspend)) != len(dspend))
+
+      if not dspend_has_ties:
+        # check ties in thetaij
+        delta2_response = dresponse[:, None] - dresponse[None, :]
+        delta2_spend = dspend[:, None] - dspend[None, :]
+        upper_indices = np.triu_indices(len(dresponse), k=1)
+        thetaij = delta2_response[upper_indices] / delta2_spend[upper_indices]
+        thetaij_has_ties = (len(np.unique(thetaij)) != len(thetaij))
+
+        if not thetaij_has_ties:
+          return 0
+        else:
+          warnings.warn("thetaij has ties! Breaking ties with perturbation.")
+          return 1
+      else:
+        warnings.warn("delta_spend has ties! Breaking ties with perturbation.")
+        return 2
+
     if len(delta_response) != len(delta_spend):
       raise ValueError("Lengths of delta_response and delta_spend differ.")
 
     if max_trim_rate < 0.0:
       raise ValueError("max_trim_rate is negative.")
 
+    if np.max(np.abs(delta_spend)) < np.finfo(float).eps:
+      raise ValueError("delta_spends are all too close to 0!")
+
     self._max_trim_rate = max_trim_rate
     self._delta_response = delta_response
     self._delta_spend = delta_spend
+
+    # adding small amount of non-linear perburtation to break potential ties.
+    # c.f. Algorithm 1 in https://arxiv.org/pdf/1908.02922.pdf
+    ties = HasTies()
+    if ties == 0:
+      perturb_dspend = perturb_dresponse = np.zeros(len(delta_response))
+    else:
+      perturb_dresponse = np.arange(len(delta_response))**1.5
+      perturb_dresponse = perturb_dresponse - np.median(perturb_dresponse)
+      if ties == 2:
+        perturb_dspend = np.arange(len(delta_spend)) - len(delta_spend) * 0.5
+      else:
+        perturb_dspend = np.zeros(len(delta_response))
+    perturb_dspend, perturb_dresponse = [
+        perturb_dspend * np.finfo(float).eps,
+        perturb_dresponse * np.finfo(float).eps
+    ]
+
     self._tm = estimator_ext.TrimmedMatch(
-        delta_response, delta_spend,
+        _VectorPerturb(np.array(delta_response), perturb_dresponse),
+        _VectorPerturb(np.array(delta_spend), perturb_dspend),
         min(0.5 - 1.0 / len(delta_response), max_trim_rate))
 
   def _CalculateEpsilons(self, iroas: float) -> List[float]:

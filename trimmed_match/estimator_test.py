@@ -123,14 +123,16 @@ class EstimatorTest(absltest.TestCase):
 
   def testTrimmedMatchValueError(self):
     # if max_trim_rate is negative
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(ValueError, "max_trim_rate is negative."):
       _ = estimator.TrimmedMatch(self._delta_response, self._delta_cost, -0.1)
     # if delta_response and delta_delta have different lengths
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(
+        ValueError, "Lengths of delta_response and delta_spend differ."):
       _ = estimator.TrimmedMatch(self._delta_response, self._delta_cost + [1.0])
     # if confidence is outside of (0, 1]
     tm = estimator.TrimmedMatch(self._delta_response, self._delta_cost)
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(ValueError,
+                                r"Confidence is outside of \(0, 1\]"):
       _ = tm.Report(-0.5, 0.0)
 
   def testCalculateEpsilons(self):
@@ -162,6 +164,23 @@ class EstimatorTest(absltest.TestCase):
                               (self._report_auto_trim, -1))
     def _(self, expected, trim_rate):
       self.AssertReportEqual(expected, tm.Report(0.90, trim_rate))
+
+  def testTrimmedMatchTiedSpend(self):
+    tm = estimator.TrimmedMatch([1, 2, 3, 4, 5], [1, 1, 1, 1, 1])
+    self.assertAlmostEqual(tm.Report().estimate, 3.0)
+
+  def testTrimmedMatchTiedThetas(self):
+    tm = estimator.TrimmedMatch([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])
+    self.assertAlmostEqual(tm.Report().estimate, 1.0)
+
+  def testTrimmedMatchTiedThetasConstant(self):
+    tm = estimator.TrimmedMatch([1, 1, 1, 1, 1], [1, 1, 1, 1, 1])
+    self.assertAlmostEqual(tm.Report().estimate, 1.0)
+
+  def testTrimmedMatchZeroSpend(self):
+    with self.assertRaisesRegex(ValueError,
+                                "delta_spends are all too close to 0!"):
+      _ = estimator.TrimmedMatch([1, 2, 3, 4, 5], [0, 0, 0, 0, 0])
 
 
 if __name__ == "__main__":

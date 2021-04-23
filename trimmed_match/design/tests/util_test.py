@@ -27,6 +27,16 @@ TimeWindow = common_classes.TimeWindow
 
 class UtilTest(unittest.TestCase):
 
+  def setUp(self):
+    """This method will be run before each of the test methods in the class."""
+    super().setUp()
+    self.df = pd.DataFrame({
+        'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
+        'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+        'response': [10, 10, 10, 20, 20, 20, 30, 30, 30, 40, 40, 40],
+        'cost': [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
+    })
+
   def testCalculateMinDetectableIroasValueError(self):
     with self.assertRaises(ValueError):
       util.CalculateMinDetectableIroas(-0.1, 0.5)
@@ -393,6 +403,58 @@ class UtilTest(unittest.TestCase):
         'Cost if test budget is scaled nationally': ['2.08K', '4.17K']
     })
     self.assertTrue(output.equals(expected_output))
+
+  def testCheckInputData(self):
+    temp_df = self.df.copy()
+    # remove one observation for geo #2
+    temp_df = temp_df[~((temp_df['geo'] == 2) &
+                        (temp_df['date'] == '2020-10-10'))]
+    geox_data = util.check_input_data(temp_df)
+    expected_df = pd.DataFrame({
+        'date': pd.to_datetime(['2020-10-09', '2020-10-10', '2020-10-11'] * 4),
+        'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+        'response': [10, 10, 10, 20, 0.0, 20, 30, 30, 30, 40, 40, 40],
+        'cost': [1.0, 1.0, 1.0, 2.0, 0.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
+    }).sort_values(by=['date', 'geo']).reset_index(drop=True)
+    self.assertTrue(geox_data.equals(expected_df))
+
+  def testCheckInputDataColumns(self):
+    temp_df = self.df.copy()
+    # remove the column date
+    temp_df.drop(columns='date', inplace=True)
+    with self.assertRaisesRegex(
+        ValueError,
+        'The mandatory columns {\'date\'} are missing from the input data'
+    ):
+      util.check_input_data(temp_df)
+
+  def testCheckInputDataUnableToConvertToNumeric(self):
+    temp_df = self.df.copy()
+    # change the column response to something which cannot be converted to
+    # numeric
+    temp_df['response'] = ['na', 10, 10, 20, 20, 20, 30, 30, 30, 40, 40, 40]
+    with self.assertRaisesRegex(
+        ValueError, 'Unable to convert column response to numeric.'):
+      util.check_input_data(temp_df)
+
+  def testCheckInputDataWithMultipleColumnsToImpute(self):
+    temp_df = self.df.copy()
+    # remove one observation for geo #2
+    temp_df = temp_df[~((temp_df['geo'] == 2) &
+                        (temp_df['date'] == '2020-10-10'))]
+    temp_df['numeric_col'] = 1
+    geox_data = util.check_input_data(temp_df,
+                                      ['response', 'cost', 'numeric_col'])
+    expected_df = pd.DataFrame({
+        'date': pd.to_datetime(['2020-10-09', '2020-10-10', '2020-10-11'] * 4),
+        'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+        'response': [10, 10, 10, 20, 0.0, 20, 30, 30, 30, 40, 40, 40],
+        'cost': [1.0, 1.0, 1.0, 2.0, 0.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
+        'numeric_col': [
+            1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+        ],
+    }).sort_values(by=['date', 'geo']).reset_index(drop=True)
+    self.assertTrue(geox_data.equals(expected_df))
 
 if __name__ == '__main__':
   unittest.main()
