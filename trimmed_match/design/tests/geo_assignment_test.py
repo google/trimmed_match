@@ -34,6 +34,7 @@ class TestSupportingFunctions(parameterized.TestCase):
   def testBinomialSignAaTest(self):
     self.assertTrue(sign_test([-1, -1, 1], 0.6))
     self.assertFalse(sign_test([-1, -1, -1], 0.6))
+    self.assertTrue(sign_test([0, 0, 0], 0.6))
 
   def testTrimmedMatchAaTest(self):
     self.assertFalse(iroas_test([1, 2, 3], [1, 2, 3], 0.8))
@@ -129,6 +130,21 @@ class GeoAssignmentTest(absltest.TestCase):
         np.array(self._aa_test_data['response']), assignment)
     delta_spends = calculate_paired_difference(
         np.array(self._aa_test_data['spend']), assignment)
+    self.assertTrue(iroas_test(delta_responses, delta_spends, 0.8))
+
+  def testGenerateBalancedRandomAssignmentWithTies(self):
+    aa_data = pd.DataFrame({
+        'geo': [1, 2, 3, 4, 5, 6],
+        'pair': [1, 1, 2, 2, 3, 3],
+        'response': [1, 1, 1, 1, 1, 1],
+        'spend': [1, 1, 1, 1, 1, 1]
+    })
+    assignment = generate_assignment(aa_data, aa_data)['assignment']
+    delta_responses = calculate_paired_difference(
+        np.array(aa_data['response']), assignment)
+    delta_spends = (
+        calculate_paired_difference(np.array(aa_data['spend']), assignment) +
+        geo_assignment._INCREMENTAL_SPEND_RATIO_FOR_AA_TEST)
     self.assertTrue(iroas_test(delta_responses, delta_spends, 0.8))
 
 

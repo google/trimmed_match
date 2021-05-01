@@ -25,6 +25,9 @@ from trimmed_match import estimator
 
 _MAX_RANDOM_ASSIGNMENTS = 200
 
+# TODO(b/186020999): pass the actual budget
+_INCREMENTAL_SPEND_RATIO_FOR_AA_TEST = 0.50
+
 
 def binomial_sign_test(delta_responses: List[float],
                        confidence: float = 0.8) -> bool:
@@ -41,8 +44,9 @@ def binomial_sign_test(delta_responses: List[float],
   num_pairs = len(delta_responses)
   conf_interval_upper = stats.binom.ppf(0.5 + 0.5 * confidence, num_pairs, 0.5)
   num_positives = sum(np.array(delta_responses) > 0)
+  num_negatives = sum(np.array(delta_responses) < 0)
   return (num_positives <= conf_interval_upper and
-          num_positives >= num_pairs - conf_interval_upper)
+          num_negatives <= conf_interval_upper)
 
 
 def trimmed_match_aa_test(delta_responses: List[float],
@@ -188,8 +192,12 @@ def generate_balanced_random_assignment(
     # trimmed match aa test
     delta_responses = calculate_paired_difference(
         np.array(aa_data['response']), geo_assignment)
-    delta_spends = calculate_paired_difference(
-        np.array(aa_data['spend']), geo_assignment)
+    geo_spends = np.array(aa_data['spend'])
+    delta_spends = (
+        calculate_paired_difference(geo_spends, geo_assignment) +
+        ((geo_spends[geo_assignment] + geo_spends[~geo_assignment])
+         * _INCREMENTAL_SPEND_RATIO_FOR_AA_TEST)
+        )
     if trimmed_match_aa_test(delta_responses, delta_spends, aa_test_confidence):
       break
 

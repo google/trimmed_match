@@ -706,7 +706,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                 'response': [101 + 2 * x for x in range(0, 20)],
                 'spend': [1 + 2 * x for x in range(0, 20)],
                 'assignment': [
-                    1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1
+                    0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0
                 ]
             })))
 
