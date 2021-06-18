@@ -7,10 +7,10 @@ With input from Isabel Marcin, Kate O’Donovan, Nicolas Remy, Aiyou Chen
 Last updated on Jan 22, 2021
 
 The purpose of this document is to guide you step by step in the process of
-designing a Trimmed Match experiment using the
+designing a randomized paired geo experiment using the
 [Python library](https://github.com/google/trimmed_match) developed at Google.
-For a general introduction to Trimmed Match, please refer to the
-[paper](https://research.google/pubs/pub48448/), and this
+For a technical description to the design process, please refer to the [Trimmed
+Match Design paper](https://research.google/pubs/pub50322/), and this
 [introduction](http://www.unofficialgoogledatascience.com/2016/06/estimating-causal-effects-using-geo.html)
 to geo experiments. The colab can be found
 [here](https://colab.sandbox.google.com/github/google/trimmed_match/blob/master/trimmed_match/notebook/design_colab_for_trimmed_match.ipynb).

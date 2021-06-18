@@ -125,14 +125,19 @@ class MatchedPairsRMSE(object):
       geox_type: GeoXType.
       geo_pairs_eval_data: pd.DataFrame(geo, pair, response, spend).
       budget: float.
-      hypothesized_iroas: float.
+      hypothesized_iroas: float >=0.
       base_seed: int, seed for generating random numbers.
 
     Raises:
       KeyError: geos are not unique or are not in pairs in geo_pairs_eval_data.
+      ValueError: if hypothesized_iroas is negative or geos are not paired
+        properly.
     """
     if len(set(geo_pairs_eval_data.geo)) != geo_pairs_eval_data.shape[0]:
       raise ValueError("Geos are not unique in geo_pairs_eval_data")
+
+    if hypothesized_iroas < 0:
+      raise ValueError(f"iROAS must be positive, got {hypothesized_iroas}")
 
     sorted_geo_pairs_eval_data = geo_pairs_eval_data.sort_values(
         by=["pair", "geo"])

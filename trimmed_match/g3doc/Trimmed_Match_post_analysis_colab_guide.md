@@ -178,7 +178,7 @@ For diagnostic purposes, one can show the list of trimmed pairs with the
 following command
 
 ```
-    print(f"The following pairs have been trimmed:{results_with_cd.trimmed_pairs}")
+    print(f"The following pairs have been trimmed:{results.trimmed_pairs}")
 ```
 
 Which outputs the following

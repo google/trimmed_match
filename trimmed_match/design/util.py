@@ -18,7 +18,7 @@
 import datetime
 import itertools
 import operator
-from typing import List
+from typing import List, Optional
 
 import dataclasses
 import numpy as np
@@ -553,7 +553,7 @@ def format_design_table(designs: pd.DataFrame,
 
 def check_input_data(
     data: pd.DataFrame,
-    numeric_columns_to_impute: List[str] = None) -> pd.DataFrame:
+    numeric_columns_to_impute: Optional[List[str]] = None) -> pd.DataFrame:
   """Returns data to be analysed using Trimmed Match with data imputation.
 
   Args:

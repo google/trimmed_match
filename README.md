@@ -8,7 +8,7 @@ This is not an officially supported Google product. For research purposes only.
 
 ## Description
 
-How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. Trimmed Match (Chen & Au, 2019) has recently been developed in order to address these technical issues in analyzing randomized paired geo experiments. We also apply Trimmed Match and cross validation to improve the traditional design of matched pairs.
+How to properly measure the effectiveness of online advertising (e.g. search, display, video, etc) is a fundamental problem not only for advertisers but for Google. Randomized geo experiments (Vaver & Koehler, 2010) have been recognized as the gold standard for the measurements, but how to design and analyze them properly is a non-trivial statistical problem. Unlike the usual A/B tests, in GeoX, the number of geos is usually small; Moreover, there is often severe heterogeneity across geos, which makes traditional regression adjustment less reliable. Furthermore, due to temporal dynamics, geos between the treatment group and the control group may become less comparable during the test period even if they were comparable during the design phase, which is often obvious by looking at the time period after the design was done but before the experiment started. Trimmed Match (Chen & Au, 2019) has recently been developed in order to address these technical issues in analyzing randomized paired geo experiments. We also apply Trimmed Match, optimal pairing and cross validation to improve the traditional design of matched pairs (Chen, Longfils & Remy, 2021).
 
 This version contains
 
@@ -99,8 +99,11 @@ print('iroas=%.2f, ci=(%.2f, %.2f)' % (
 
 ## References
 
-Aiyou Chen and Tim Au (2019). Robust Causal Inference for Incremental Return on Ad Spend with Randomized Geo Experiments.
+Aiyou Chen and Tim Au (2019). Robust Causal Inference for Incremental Return on Ad Spend with Randomized Geo Experiments. (Accepted by [Annals of Applied Statistics](https://imstat.org/journals-and-publications/annals-of-applied-statistics/annals-of-applied-statistics-next-issues/))
 (https://research.google/pubs/pub48448/)
+
+Aiyou Chen, Marco Longfils, and Nicolas Remy (2021). Trimmed Match Design for Randomized Paired Geo Experiments.
+(https://research.google/pubs/pub50322/)
 
 Jon Vaver and Jim Koehler (2011). Measuring Ad Effectiveness Using Geo Experiments.
 (https://research.google/pubs/pub38355/)

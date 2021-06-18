@@ -645,6 +645,27 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         self.assertAlmostEqual(
             value['estimate'].mean(), iroas, delta=0.05 + 0.1 * iroas)
 
+  def testReportCandidateDesignWithNegativeIROAS(self):
+    """Checks the calculation with negative values in iroas_list."""
+
+    self.test_class._pretest_data = pd.concat(
+        [self.test_class._pretest_data, self.add_pair], sort=False)
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+      self.test_class._geox_type = geox_type
+
+      with self.assertRaisesRegex(
+          ValueError,
+          r'All elements in iroas_list must have non-negative values, got \[-1\].'
+      ):
+        self.test_class.report_candidate_designs(
+            budget_list=[30, 40],
+            iroas_list=[0, -1, 2],
+            use_cross_validation=True,
+            num_pairs_filtered_list=[0, 1, 100],
+            num_simulations=100)
+
   def testInsufficientNumberOfGeos(self):
     with self.assertRaisesRegex(
         ValueError,

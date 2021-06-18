@@ -106,6 +106,14 @@ class ConstructPotentialOutcomesTest(unittest.TestCase):
     }
     self.assertDictEqual(expected, potential_outcomes)
 
+  def testUnknownGeoXType(self):
+    """Checks an error is raised if the GeoX type is unknown."""
+    with self.assertRaisesRegex(ValueError, "Unknown geox_type: \'UNKNOWN\'"):
+      matched_pairs_rmse._construct_potential_outcomes(
+          "UNKNOWN", self._geox_eval_data,
+          (self._budget * 2.0 / self._geox_eval_data.spend.sum()),
+          self._hypothesized_iroas)
+
 
 class IsPairedTest(unittest.TestCase):
 
@@ -148,6 +156,30 @@ class MatchedPairsRMSETest(unittest.TestCase):
     self.assertEqual(outcome1.geo, outcome2.geo)
     self.assertEqual(outcome1.response, outcome2.response)
     self.assertEqual(outcome1.spend, outcome2.spend)
+
+  def testHypothesizedIroasNegative(self):
+    """Checks an error is raised if the hypothesized iROAS is negative."""
+    with self.assertRaisesRegex(ValueError, "iROAS must be positive, got -1.0"):
+      MatchedPairsRMSE(GeoXType.GO_DARK, self._geo_pairs_eval_data,
+                       self._budget, -1.0)
+
+  def testGeosNotUnique(self):
+    """Checks an error is raised if geos are duplicated."""
+    geo_pairs_eval_data = self._geo_pairs_eval_data.copy()
+    geo_pairs_eval_data.loc[geo_pairs_eval_data["geo"] == 3, "geo"] = 1
+    with self.assertRaisesRegex(ValueError,
+                                "Geos are not unique in geo_pairs_eval_data"):
+      MatchedPairsRMSE(GeoXType.GO_DARK, geo_pairs_eval_data, self._budget,
+                       self._hypothesized_iroas)
+
+  def testGeosNotPairedProperly(self):
+    """Checks an error is raised if geos are not paired properly."""
+    geo_pairs_eval_data = self._geo_pairs_eval_data.copy()
+    geo_pairs_eval_data.loc[geo_pairs_eval_data["geo"] == 3, "pair"] = 1
+    with self.assertRaisesRegex(
+        KeyError, "Geos in geo_pairs_eval_data are not paired properly"):
+      MatchedPairsRMSE(GeoXType.GO_DARK, geo_pairs_eval_data, self._budget,
+                       self._hypothesized_iroas)
 
   def testSimulateGeoXDataRandomization(self):
     """Checks randomization within the pair."""

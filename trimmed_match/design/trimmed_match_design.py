@@ -41,7 +41,7 @@ Example usage:
     num_pairs_filtered_list)
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import warnings
 
 import matplotlib.pyplot as plt
@@ -59,6 +59,8 @@ _DEFAULT_CONFIDENCE_LEVEL = 0.8
 _MIN_NUM_PAIRS = 10
 # Minimum total spend
 _SPEND_TOLERANCE = 1e-10
+# Minimum acceptable value for iROAS
+_MIN_IROAS = 0
 
 TimeWindow = common_classes.TimeWindow
 GeoXType = common_classes.GeoXType
@@ -75,8 +77,8 @@ class TrimmedMatchGeoXDesign(object):
                time_window_for_eval: TimeWindow,
                response: str = 'response',
                spend_proxy: str = 'spend',
-               matching_metrics: Dict[str, float] = None,
-               pairs: pd.DataFrame = None):
+               matching_metrics: Optional[Dict[str, float]] = None,
+               pairs: Optional[pd.DataFrame] = None):
     """Initializes TrimmedMatchGeoXDesign.
 
     Args:
@@ -280,7 +282,7 @@ class TrimmedMatchGeoXDesign(object):
 
     Args:
       budget_list: list of floats.
-      iroas_list: list of floats.
+      iroas_list: list of nonnegative floats.
       num_pairs_filtered_list: list of int, used to filter pairs up to each
         element of num_pairs_filter.
       use_cross_validation: bool, same as in create_geo_pairs().
@@ -302,6 +304,9 @@ class TrimmedMatchGeoXDesign(object):
         values pd.DataFrames with the results of each simulation. The
         pd.DataFrames have columns (simulation, estimate, trim_rate, std_error,
         conf_interval_low, conf_interval_up, ci_level).
+
+    Raises:
+      ValueError if any element in iroas_list is negative.
     """
     if self.pairs is None:
       self.create_geo_pairs(use_cross_validation)
@@ -326,6 +331,10 @@ class TrimmedMatchGeoXDesign(object):
           filter for filter in num_pairs_filtered_list
           if filter <= max_num_pairs_to_filter
       ]
+    if min(iroas_list) < _MIN_IROAS:
+      invalid_iroas = [iroas for iroas in iroas_list if iroas < _MIN_IROAS]
+      raise ValueError('All elements in iroas_list must have non-negative ' +
+                       f'values, got {invalid_iroas}.')
 
     total_spend = self.geo_level_eval_data['spend'].sum()
     results = []
