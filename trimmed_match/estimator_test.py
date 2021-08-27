@@ -178,9 +178,9 @@ class EstimatorTest(absltest.TestCase):
     self.assertAlmostEqual(tm.Report().estimate, 1.0)
 
   def testTrimmedMatchZeroSpend(self):
-    with self.assertRaisesRegex(ValueError,
-                                "delta_spends are all too close to 0!"):
-      _ = estimator.TrimmedMatch([1, 2, 3, 4, 5], [0, 0, 0, 0, 0])
+    with self.assertRaisesRegex(
+        ValueError, "delta_spends are all too close to 0!"):
+      _ = estimator.TrimmedMatch([1, 2, 3, 4, 5], [0, 0, 0, 0, 1e-15])
 
 
 if __name__ == "__main__":

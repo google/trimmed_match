@@ -35,6 +35,30 @@ In order to run the colab, you will need the following table
 *   **Example**:
     [here](https://github.com/google/trimmed_match/blob/master/trimmed_match/example_datasets/example_data_for_design.csv)
 
+### pairs\_table [OPTIONAL]:
+
+*   **Description**: this table is OPTIONAL. Leave empty if you don't want to
+    specify the geo pairs. If specified, the design will use the specified geo
+    pairs to run the power analysis. It is important that the geos has not been
+    paired using observations from the chosen evaluation period below to avoid
+    overfitting. For example, it can be used to evaluate a design on a different
+    metric. This can be done by first running a design based on the main KPI
+    (e.g. offline revenue) and then run the same colab where the “response”
+    column in the client_sales_table is now the secondary KPI (e.g. online
+    revenue) and passing the pairing as found in the output of the design using
+    the main KPI (Worksheet named "geopairs" in the Google Sheet created in your
+    Google Drive in cell 9).
+
+*   **Format**: Google sheet containing the following mandatory columns: geo,
+    pair, assignment. Any additional column is ok. The column pair should
+    indicate the pair labels, and should be a number between 1 and N for a case
+    with 2*N geos (or N pairs). The column assignment can be used to filter
+    pairs, where a string equal to “Filtered” indicates a pairs that should be
+    discarded from the design.
+
+*   **Example**:
+    [here](https://github.com/google/trimmed_match/blob/master/trimmed_match/example_datasets/example_geo_pairs.csv)
+
 ## Cell by cell description of the colab
 
 ### Data Input

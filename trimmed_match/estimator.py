@@ -17,10 +17,10 @@
 
 See the tech details in https://ai.google/research/pubs/pub48448/.
 """
+import dataclasses
 from typing import List, Set
 import warnings
 
-import dataclasses
 import numpy as np
 from scipy import stats
 from trimmed_match.core.python import estimator_ext
@@ -30,6 +30,9 @@ from trimmed_match.core.python import estimator_ext
 # iroas: float
 # std_error: float
 TrimAndError = estimator_ext.TrimAndError
+
+# At least one pair must have absolute spend differrence above this value
+_MIN_SPEND_GAP = 1e-10
 
 # This trim rate removes half of the data
 RATE_TO_TRIM_HALF_DATA = 0.25
@@ -147,7 +150,7 @@ class TrimmedMatch(object):
     if max_trim_rate < 0.0:
       raise ValueError("max_trim_rate is negative.")
 
-    if np.max(np.abs(delta_spend)) < np.finfo(float).eps:
+    if np.max(np.abs(delta_spend)) < _MIN_SPEND_GAP:
       raise ValueError("delta_spends are all too close to 0!")
 
     self._max_trim_rate = max_trim_rate

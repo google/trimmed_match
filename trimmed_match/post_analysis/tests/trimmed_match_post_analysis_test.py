@@ -135,7 +135,6 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         for x in range(len(self.data.treatment_response))
     ]
     estimate = sum(delta_response[2:]) / sum(delta_spend[2:])
-    std_error = 0.041
     trim_rate = 0.25
     confidence = 0.9
     conf_interval_low = -29.374
@@ -154,7 +153,6 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
 
     fit = results.report
     self.assertAlmostEqual(fit.estimate, estimate, places=3)
-    self.assertAlmostEqual(fit.std_error, std_error, places=3)
     self.assertAlmostEqual(fit.trim_rate, trim_rate, places=3)
     self.assertAlmostEqual(fit.confidence, confidence, places=3)
     self.assertAlmostEqual(fit.conf_interval_low, conf_interval_low, places=3)
@@ -233,10 +231,10 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
                        'Summary of the results for the iROAS:\n\n')
       self.assertEqual(
           mock_print.call_args_list[1][0][0],
-          'estimate\t std. error\t trim_rate\t ci_level\t confidence interval')
+          'estimate\t trim_rate\t ci_level\t confidence interval')
       self.assertEqual(
           mock_print.call_args_list[2][0][0],
-          '1.571\t\t 0.041\t\t 0.25\t\t 0.90\t\t [-29.374, 1.619]\n\n')
+          '1.571\t\t 0.25\t\t 0.90\t\t [-29.374, 1.619]\n\n')
       self.assertEqual(mock_print.call_args_list[3][0][0], 'cost = 13')
       self.assertEqual(mock_print.call_args_list[4][0][0],
                        '\nincremental response = 20.4')

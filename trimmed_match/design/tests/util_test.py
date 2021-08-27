@@ -428,6 +428,17 @@ class UtilTest(unittest.TestCase):
     ):
       util.check_input_data(temp_df)
 
+  def testCheckInputDataDuplicatedDateGeo(self):
+    temp_df = self.df.copy().append(pd.DataFrame(
+        {'date': pd.to_datetime(['2020-01-01', '2020-01-01']),
+         'geo': [1, 1],
+         'response': [0, 1],
+         'cost': [0, 1]}))
+    with self.assertRaisesRegex(
+        ValueError, 'There are duplicated date geo pairs.'
+    ):
+      util.check_input_data(temp_df)
+
   def testCheckInputDataUnableToConvertToNumeric(self):
     temp_df = self.df.copy()
     # change the column response to something which cannot be converted to

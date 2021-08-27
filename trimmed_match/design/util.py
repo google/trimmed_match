@@ -15,12 +15,12 @@
 
 """Utilities functions to manipulate the data in the colab."""
 
+import dataclasses
 import datetime
 import itertools
 import operator
 from typing import List, Optional
 
-import dataclasses
 import numpy as np
 import pandas as pd
 import pandas.io.formats.style as style
@@ -283,9 +283,9 @@ def infer_frequency(data: pd.DataFrame, date_index: str,
           observed_times[1:n_steps] -
           observed_times[0:(n_steps - 1)]).astype('timedelta64[D]').values
 
-      modal_frequency, _ = np.unique(time_diffs, return_counts=True)
+      min_frequency = np.min(time_diffs)
 
-      series_frequencies.append(modal_frequency[0])
+      series_frequencies.append(min_frequency)
 
   if not series_frequencies:
     raise ValueError(
@@ -427,7 +427,8 @@ def create_output_table(results: pd.DataFrame,
   designs = []
   for budget in budgets_for_design:
     tmp_result = results[results['budget'] == budget]
-    chosen_design = tmp_result.loc[tmp_result['rmse_cost_adjusted'].idxmin()]
+    chosen_design = tmp_result.loc[
+        tmp_result['rmse_cost_adjusted'].idxmin()].squeeze()
     baseline = geo_treatment.loc[
         geo_treatment['pair'] > chosen_design['num_pairs_filtered'],
         'response'].sum()
@@ -570,6 +571,7 @@ def check_input_data(
 
   Raises:
     ValueError: if one of the mandatory columns is missing.
+    ValueError: if any (date, geo) pair is duplicated.
   """
   numeric_columns_to_impute = numeric_columns_to_impute or ['response', 'cost']
   mandatory_columns = set(['date', 'geo'] + numeric_columns_to_impute)
@@ -577,6 +579,9 @@ def check_input_data(
     raise ValueError('The mandatory columns ' +
                      f'{mandatory_columns - set(data.columns)} are missing ' +
                      'from the input data.')
+
+  if (data.shape[0] > data[['date', 'geo']].drop_duplicates().shape[0]):
+    raise ValueError('There are duplicated date geo pairs.')
 
   data['date'] = pd.to_datetime(data['date'])
   for column in ['geo'] + numeric_columns_to_impute:

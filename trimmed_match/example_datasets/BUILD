@@ -2,8 +2,6 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-exports_files(["LICENSE"])
-
 py_binary(
     name = "simulation_script",
     srcs = ["simulation_script.py"],

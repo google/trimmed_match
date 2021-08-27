@@ -4,8 +4,6 @@ package(
 
 licenses(["notice"])
 
-exports_files(["LICENSE"])
-
 cc_library(
     name = "estimator",
     srcs = ["estimator.cc"],

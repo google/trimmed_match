@@ -69,7 +69,7 @@ def prepare_data_for_post_analysis(
                                                           'cost']].sum()
   # remove any assignment outside treatment/control
   grouped_data = grouped_data[grouped_data['assignment'].isin(
-      [group_control, group_treatment])]
+      [group_control, group_treatment])].copy()
   grouped_data.sort_values(by=['pair', 'assignment'], inplace=True)
 
   if any(grouped_data['geo'].duplicated()):
@@ -159,11 +159,11 @@ def report_experiment_results(results: TrimmedMatchResults,
   """
   fit = results.report
   print('Summary of the results for the iROAS:\n\n')
-  print('estimate\t std. error\t trim_rate\t ci_level\t confidence interval')
+  print('estimate\t trim_rate\t ci_level\t confidence interval')
   print(
-      '{:.3f}\t\t {:.3f}\t\t {:.2f}\t\t {:.2f}\t\t [{:.3f}, {:.3f}]\n\n'.format(
+      '{:.3f}\t\t {:.2f}\t\t {:.2f}\t\t [{:.3f}, {:.3f}]\n\n'.format(
           fit.estimate * average_order_value,
-          fit.std_error * average_order_value, fit.trim_rate, fit.confidence,
+          fit.trim_rate, fit.confidence,
           fit.conf_interval_low * average_order_value,
           fit.conf_interval_up * average_order_value))
 

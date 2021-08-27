@@ -94,6 +94,21 @@ class TrimmedMatchDesignTest(unittest.TestCase):
         'spend': 0.01,
     })
 
+  def testMatchingMetricsZeroWeights(self):
+    """Checks that an error is raised if all weights are 0 in matching metrics."""
+    with self.assertRaisesRegex(
+        ValueError,
+        r'Weights in matching_metrics sum up to 0.'):
+      TrimmedMatchGeoXDesign(
+          GeoXType.HEAVY_UP,
+          pretest_data=self.test_data,
+          time_window_for_design=self.design_window,
+          time_window_for_eval=self.evaluation_window,
+          matching_metrics={
+              'response': 0.0,
+              'cost': 0.0
+          })
+
   def testMatchingMetricsWithCustomColumnNames(self):
     default_class = TrimmedMatchGeoXDesign(
         GeoXType.HEAVY_UP,

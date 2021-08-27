@@ -114,6 +114,8 @@ class TrimmedMatchGeoXDesign(object):
                        f'{pretest_data[spend_proxy].sum():.2f}')
     if matching_metrics is None:
       matching_metrics = {response: 1.0, spend_proxy: 0.01}
+    if sum(matching_metrics.values()) <= 0:
+      raise ValueError('Weights in matching_metrics sum up to 0.')
 
     self._geox_type = geox_type
     self._response = response
@@ -302,7 +304,7 @@ class TrimmedMatchGeoXDesign(object):
         equal to spend_response_ratio * 2.
       detailed_results: dict with keys (budget, iroas, num_pairs_filtered) and
         values pd.DataFrames with the results of each simulation. The
-        pd.DataFrames have columns (simulation, estimate, trim_rate, std_error,
+        pd.DataFrames have columns (simulation, estimate, trim_rate,
         conf_interval_low, conf_interval_up, ci_level).
 
     Raises:

@@ -232,7 +232,6 @@ class MatchedPairsRMSE(object):
       detailed_results.append({
           "simulation": index,
           "estimate": report.estimate,
-          "std_error": report.std_error,
           "trim_rate": report.trim_rate,
           "ci_level": report.confidence,
           "conf_interval_low": report.conf_interval_low,
