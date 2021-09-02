@@ -14,9 +14,7 @@
 # ============================================================================
 
 """Module to evaluate root mean square error (RMSE) from matched pairs."""
-from typing import Dict
-from typing import List
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -54,13 +52,25 @@ def _construct_potential_outcomes(
   potential_outcomes = {}
   for _, row in geo_eval_data.iterrows():
     spend_in_control = row.spend
+    spend_change_in_control = 0.0
     incremental_spend = row.spend * incremental_spend_ratio
+    # TODO(aiyouchen) add a check and raise an error if the spend change is too
+    # large compared to BAU. In such case we should use
+    # GO_DARK_TREATMENT_NOT_BAU_CONTROL
     if geox_type == GeoXType.GO_DARK:
-      # Sometimes we use a spend proxy, which may have a different scale, so
-      # the level of spend in control should be rescaled according to
-      # incremental_spend_ratio.
+      # this case corresponds to the standard GO_DARK, where control is in BAU
+      # while treatment spend is shut down.
       spend_in_control = incremental_spend
       incremental_spend = -incremental_spend
+      spend_in_treatment = 0.0
+    elif geox_type == GeoXType.GO_DARK_TREATMENT_NOT_BAU_CONTROL:
+      # this case corresponds to an experiment where treatment spend is shut
+      # down, while control spend is changed (increased/decreased). Since
+      # control is not in BAU, the potential outcomes for response when
+      # controlled should be adjusted from the observed evaluation response.
+      spend_in_control = incremental_spend
+      spend_change_in_control = spend_in_control - row.spend
+      incremental_spend = -row.spend
       spend_in_treatment = 0.0
     elif geox_type == GeoXType.HOLD_BACK:
       # Recall that a proxy cost is used for HOLD_BACK.
@@ -74,7 +84,11 @@ def _construct_potential_outcomes(
     else:
       raise ValueError("Unknown geox_type: {!r}".format(geox_type))
 
-    controlled_outcome = GeoLevelData(row.geo, row.response, spend_in_control)
+    controlled_outcome = GeoLevelData(
+        row.geo,
+        max(
+            0.0, row.response + hypothesized_iroas *
+            spend_change_in_control), spend_in_control)
     treated_outcome = GeoLevelData(
         row.geo, max(0.0,
                      row.response + hypothesized_iroas * incremental_spend),

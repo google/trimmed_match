@@ -636,7 +636,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
       self.test_class._geox_type = geox_type
       (results, detailed_results) = self.test_class.report_candidate_designs(
           budget_list=[30, 40],
-          iroas_list=[0, 2],
+          iroas_list=[0, 0.002],
           use_cross_validation=True,
           num_pairs_filtered_list=[0, 1, 100],
           num_simulations=100)
@@ -647,7 +647,7 @@ class TrimmedMatchDesignTest(unittest.TestCase):
           'experiment_spend': [191.5, 183] * 4,
           'spend_response_ratio': [191.5 / 373, 183 / 364] * 4,
           'budget': [30, 30, 40, 40, 30, 30, 40, 40],
-          'iroas': [0, 0, 0, 0, 2, 2, 2, 2],
+          'iroas': [0, 0, 0, 0, 0.002, 0.002, 0.002, 0.002],
           'proportion_cost_in_experiment': [1, 183 / 191.5] * 4
       })
 

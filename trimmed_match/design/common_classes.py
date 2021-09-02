@@ -15,10 +15,10 @@
 
 """A few common classes to be used for the library."""
 
+import dataclasses
 import enum
 from typing import Any, Callable, Dict, NamedTuple
 
-import dataclasses
 import pandas as pd
 
 
@@ -36,6 +36,8 @@ class GeoXType(enum.Enum):
   HEAVY_UP = enum.auto()  # increase ad spend
   HEAVY_DOWN = enum.auto()  # decrease ad spend
   HOLD_BACK = enum.auto()  # start ad spend during test (0 during pretest)
+  GO_DARK_TREATMENT_NOT_BAU_CONTROL = enum.auto(
+  )  # 0 ad spend in treatment, changed (up/down) ad spend in control
 
 
 class GeoLevelData(NamedTuple):

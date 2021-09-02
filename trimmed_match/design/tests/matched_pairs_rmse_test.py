@@ -56,6 +56,23 @@ class ConstructPotentialOutcomesTest(unittest.TestCase):
     }
     self.assertDictEqual(expected, potential_outcomes)
 
+  def testGoDarkWithHeavyUpControl(self):
+    potential_outcomes = matched_pairs_rmse._construct_potential_outcomes(
+        GeoXType.GO_DARK_TREATMENT_NOT_BAU_CONTROL, self._geox_eval_data,
+        (self._budget * 2.0 / self._geox_eval_data.spend.sum()),
+        self._hypothesized_iroas)
+    expected = {
+        1:
+            GeoLevelPotentialOutcomes(
+                controlled=GeoLevelData(geo=1, response=20, spend=20),
+                treated=GeoLevelData(geo=1, response=0, spend=0)),
+        2:
+            GeoLevelPotentialOutcomes(
+                controlled=GeoLevelData(geo=2, response=40, spend=40),
+                treated=GeoLevelData(geo=2, response=0, spend=0))
+    }
+    self.assertDictEqual(expected, potential_outcomes)
+
   def testHeavyUp(self):
     potential_outcomes = matched_pairs_rmse._construct_potential_outcomes(
         GeoXType.HEAVY_UP, self._geox_eval_data,
@@ -293,7 +310,8 @@ class MatchedPairsRMSETest(unittest.TestCase):
         GeoXType.GO_DARK: [2, 3],
         GeoXType.HOLD_BACK: [2, 3],
         GeoXType.HEAVY_UP: [3, 4],
-        GeoXType.HEAVY_DOWN: [3, 4]
+        GeoXType.HEAVY_DOWN: [3, 4],
+        GeoXType.GO_DARK_TREATMENT_NOT_BAU_CONTROL: [2, 3],
     }
     for geox_type in GeoXType:
       if geox_type == GeoXType.CONTROL:

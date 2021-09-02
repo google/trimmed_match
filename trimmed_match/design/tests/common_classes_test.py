@@ -38,7 +38,10 @@ class CommonClassesTest(unittest.TestCase):
     self._t2 = '2020-01-01'
 
   def testGeoXType(self):
-    for x in ['CONTROL', 'GO_DARK', 'HEAVY_UP', 'HEAVY_DOWN', 'HOLD_BACK']:
+    for x in [
+        'CONTROL', 'GO_DARK', 'HEAVY_UP', 'HEAVY_DOWN', 'HOLD_BACK',
+        'GO_DARK_TREATMENT_NOT_BAU_CONTROL'
+    ]:
       self.assertIn(x, GeoXType.__members__)
     self.assertNotIn('go-dark', GeoXType.__members__)
     self.assertEqual(GeoXType['GO_DARK'], GeoXType.GO_DARK)
