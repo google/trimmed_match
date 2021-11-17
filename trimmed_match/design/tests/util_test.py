@@ -361,7 +361,7 @@ class UtilTest(unittest.TestCase):
 
   def testCreateOutputTable(self):
     results = pd.DataFrame({
-        'num_pairs_filtered': [0, 1, 0, 1],
+        'num_pairs': [5, 4, 5, 4],
         'experiment_response': [200, 100, 200, 100],
         'experiment_spend': [20, 10, 20, 10],
         'spend_response_ratio': [0.1, 0.1, 0.1, 0.1],
@@ -388,7 +388,8 @@ class UtilTest(unittest.TestCase):
     rmse_multiplier = 2.123172
     minimum_detectable_iroas = [rmse_multiplier * 1, rmse_multiplier * 0.5]
     minimum_detectable_lift = [
-        minimum_detectable_iroas[x] * budgets_for_design[x] * 100 / 8
+        minimum_detectable_iroas[x] * budgets_for_design[x] * 100 /
+        geo_treatment['response'].sum()
         for x in range(len(minimum_detectable_iroas))
     ]
     minimum_detectable_lift = [f'{x:.2f} %' for x in minimum_detectable_lift]
@@ -397,11 +398,14 @@ class UtilTest(unittest.TestCase):
         'Budget': ['500', '1K'],
         'Minimum detectable iROAS': minimum_detectable_iroas,
         'Minimum detectable lift in response': minimum_detectable_lift,
-        'Treatment/control/excluded geos': ['3  /  3  /  2', '3  /  3  /  2'],
-        'Revenue covered by treatment group': ['2.67 %', '2.67 %'],
-        'Cost/baseline response': ['6250.00 %', '12500.00 %'],
-        'Cost if test budget is scaled nationally': ['2.08K', '4.17K']
+        'Treatment/control/excluded geos': ['4  /  4  /  0', '4  /  4  /  0'],
+        'Revenue covered by treatment group': ['6.00 %', '6.00 %'],
+        'Cost/baseline response': ['2777.78 %', '5555.56 %'],
+        'Cost if test budget is scaled nationally': ['1.79K', '3.57K']
     })
+    for col in output.columns:
+      print(output[col])
+      print(expected_output[col])
     self.assertTrue(output.equals(expected_output))
 
   def testCheckInputData(self):
@@ -466,6 +470,68 @@ class UtilTest(unittest.TestCase):
         ],
     }).sort_values(by=['date', 'geo']).reset_index(drop=True)
     self.assertTrue(geox_data.equals(expected_df))
+
+  def testPairingNotInAList(self):
+    """Checks an error is raised if pairs are not passed in a list."""
+    # geo 1 and 2 appear in two pairs.
+    pairs = pd.DataFrame({
+        'geo1': [1, 2, 2],
+        'geo2': [3, 4, 1],
+        'pair': [1, 2, 3]
+    })
+    with self.assertRaisesRegex(ValueError,
+                                r'pairs must be a list of dataframes.'):
+      util.check_pairs(
+          pretest_data=self.df,
+          pairs=pairs)
+
+  def testPairingWithDuplicatedGeos(self):
+    """Checks an error is raised if a geo appears in multiple pairs."""
+    # geo 1 and 2 appear in two pairs.
+    pairs = [
+        pd.DataFrame({
+            'geo1': [1, 2, 2],
+            'geo2': [3, 4, 1],
+            'pair': [1, 2, 3]
+        })
+    ]
+    with self.assertRaisesRegex(
+        ValueError, f'Some geos are duplicated in the pairing {pairs[0]}.'):
+      util.check_pairs(
+          pretest_data=self.df,
+          pairs=pairs)
+
+  def testPairingWithMoreThanTwoGeosPerPair(self):
+    """Checks an error is raised if a pair appears multiple times."""
+    # geo 1 and 2 appear in two pairs.
+    pairs = [
+        pd.DataFrame({
+            'geo1': [1, 2],
+            'geo2': [3, 4],
+            'pair': [1, 1]
+        })
+    ]
+    with self.assertRaisesRegex(
+        ValueError, r'a pair should only have two geos.'):
+      util.check_pairs(
+          pretest_data=self.df,
+          pairs=pairs)
+
+  def testPairingWithGeosNotInPretestData(self):
+    """Raises an error if a geo appears in the pairs but not in the data."""
+    # geo 5 and 6 appear in the pairs but not in the pretest data.
+    pairs = [pd.DataFrame({
+        'geo1': [1, 2, 5],
+        'geo2': [3, 4, 6],
+        'pair': [1, 2, 3]
+    })]
+    with self.assertRaisesRegex(ValueError,
+                                r'The geos ' +
+                                r'{5, 6} appear ' +
+                                r'in the pairs but not in the pretest data.'):
+      util.check_pairs(
+          pretest_data=self.df,
+          pairs=pairs)
 
 if __name__ == '__main__':
   unittest.main()

@@ -36,7 +36,7 @@ def plot_candidate_design_rmse(
   Args:
     response: str, primary response variable used for the design.
     num_pairs: int, total number of pairs in the design.
-    results: pd.DataFrame, with columns (num_pairs_filtered,
+    results: pd.DataFrame, with columns (pair_index,
       experiment_response, experiment_spend, spend_response_ratio, budget,
       iroas, rmse, proportion_cost_in_experiment).
 
@@ -61,31 +61,31 @@ def plot_candidate_design_rmse(
       fig = plt.figure(figsize=(20, 10))
       ax = fig.add_subplot(1, 1, 1)
       ax.plot(
-          result['num_pairs_filtered'], result['rmse'], 'blue', label='RMSE')
+          result['pair_index'], result['rmse'], 'blue', label='RMSE')
       ax.plot(
-          result['num_pairs_filtered'],
+          result['pair_index'],
           result['rmse_cost_adjusted'],
           'red',
           label='Cost adjusted RMSE')
       ax.set_xlim(
-          min(result['num_pairs_filtered']) - 1,
-          max(result['num_pairs_filtered']) + 1)
+          min(result['pair_index']) - 1,
+          max(result['pair_index']) + 1)
       ax.set_ylim(
           min(result.rmse) - delta,
           max(result.rmse_cost_adjusted) + delta)
       ax.legend()
       ax.hlines(
           y=hlines,
-          xmin=min(result['num_pairs_filtered']),
-          xmax=max(result['num_pairs_filtered']),
+          xmin=min(result['pair_index']),
+          xmax=max(result['pair_index']),
           colors='gray',
           linestyles='dashed')
       for _, row in result.iterrows():
         ax.text(
-            row.num_pairs_filtered + 1, row.rmse + delta,
+            row.pair_index + 1, row.rmse + delta,
             '{}'.format(
                 util.human_readable_number(row.experiment_response)))
-      ax.set_xlabel('#(Excluded geo pairs)')
+      ax.set_xlabel('Pairing number')
       ax.set_ylabel('RMSE')
       ax.set_title(
           f'''RMSE of iROAS w.r.t. {response} (total pairs: {num_pairs})''')
@@ -100,7 +100,6 @@ def output_chosen_design(
     geo_level_eval_data: pd.DataFrame,
     response: str,
     spend_proxy: str,
-    num_pairs_filtered: int,
     time_window_for_eval: TimeWindow,
     group_control: int = common_classes.GeoAssignment.CONTROL,
     group_treatment: int = common_classes.GeoAssignment.TREATMENT
@@ -113,7 +112,6 @@ def output_chosen_design(
       pair)
     response: str, column name used as response in the design.
     spend_proxy: str, column used as spend proxy in the design.
-    num_pairs_filtered: int, number of pairs to filter from the experiment.
     time_window_for_eval: TimeWindow, representing the time period of pretest
       data used for evaluation of RMSE in estimating iROAS.
     group_control: value representing the control group in the data.
@@ -123,11 +121,10 @@ def output_chosen_design(
     an array of subplots containing the scatterplot and time series comparison
       for the response and spend of the two groups.
   """
-  included_pairs = geo_level_eval_data['pair'] > num_pairs_filtered
-
-  geopairs = geo_level_eval_data[included_pairs]
-  geo_treatment = geopairs[geopairs['assignment'] == group_treatment]
-  geo_control = geopairs[geopairs['assignment'] == group_control]
+  geo_treatment = geo_level_eval_data[geo_level_eval_data['assignment'] ==
+                                      group_treatment]
+  geo_control = geo_level_eval_data[geo_level_eval_data['assignment'] ==
+                                    group_control]
   treatment_geo = geo_treatment['geo'].to_list()
   control_geo = geo_control['geo'].to_list()
 
@@ -219,11 +216,12 @@ def output_chosen_design(
 
 def plot_paired_comparison(
     pretest_data: pd.DataFrame, geo_level_eval_data: pd.DataFrame,
-    response: str, num_pairs_filtered: int,
+    response: str,
     time_window_for_design: TimeWindow,
     time_window_for_eval: TimeWindow,
     group_control: int = common_classes.GeoAssignment.CONTROL,
-    group_treatment: int = common_classes.GeoAssignment.TREATMENT
+    group_treatment: int = common_classes.GeoAssignment.TREATMENT,
+    legend_location: str = 'best'
 ) -> sns.FacetGrid:
   """Plot the time series of the response variable for each pair.
 
@@ -232,27 +230,25 @@ def plot_paired_comparison(
     geo_level_eval_data: a pd.DataFrame with columns (geo, response, spend,
       pair)
     response: str, column name used as response in the design.
-    num_pairs_filtered: int, number of pairs to filter from the experiment.
     time_window_for_design: TimeWindow, representing the time period of
       pretest data used for the design (training + eval).
     time_window_for_eval: TimeWindow, representing the time period of pretest
       data used for evaluation of RMSE in estimating iROAS.
     group_control: value representing the control group in the data.
     group_treatment: value representing the treatment group in the data.
+    legend_location: location to place the legend in each plot. Acceptable
+      values are of the form 'upper left', 'lower right', etc.; see the
+      documentation at
+      https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.legend.html#matplotlib.pyplot.legend.
 
   Returns:
     g: sns.FacetGrid containing one axis for each pair of geos. Each axis
       contains the time series plot of the response variable for the
       treated geo vs the control geo for a particular pair in the design.
   """
-  included_pairs = geo_level_eval_data[
-      'pair'] > num_pairs_filtered
+  experiment_geo_list = geo_level_eval_data['geo'].to_list()
 
-  geos_in_experiment = geo_level_eval_data.loc[included_pairs]
-
-  experiment_geo_list = geos_in_experiment['geo'].to_list()
-
-  geos_assigned = geos_in_experiment[['geo', 'pair', 'assignment']]
+  geos_assigned = geo_level_eval_data[['geo', 'pair', 'assignment']]
 
   temporary = pretest_data[pretest_data['geo'].isin(
       experiment_geo_list)]
@@ -260,7 +256,7 @@ def plot_paired_comparison(
       time_window_for_design.first_day, time_window_for_design.last_day)]
   data_to_plot = pd.merge(
       temporary,
-      geos_in_experiment[['geo', 'pair', 'assignment']],
+      geo_level_eval_data[['geo', 'pair', 'assignment']],
       on='geo',
       how='left')
 
@@ -275,8 +271,9 @@ def plot_paired_comparison(
       height=3,
       aspect=2)
   g = (g.map(plt.plot, 'date', response).add_legend())
+  pair_list = sorted(geos_assigned['pair'].unique())
   for ind in range(len(g.axes)):
-    pair = geos_assigned['pair'] == (ind + num_pairs_filtered + 1)
+    pair = geos_assigned['pair'] == pair_list[ind]
     cont = geos_assigned[
         pair
         & (geos_assigned['assignment'] == group_control)]['geo'].values[0]
@@ -293,6 +290,6 @@ def plot_paired_comparison(
         'control' + ' (geo {})'.format(cont), 'treatment' +
         ' (geo {})'.format(treat), 'Evaluation period', 'Training period'
     ],
-                       loc='upper right')
+                       loc=legend_location)
 
   return g

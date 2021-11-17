@@ -429,18 +429,14 @@ def create_output_table(results: pd.DataFrame,
     tmp_result = results[results['budget'] == budget]
     chosen_design = tmp_result.loc[
         tmp_result['rmse_cost_adjusted'].idxmin()].squeeze()
-    baseline = geo_treatment.loc[
-        geo_treatment['pair'] > chosen_design['num_pairs_filtered'],
-        'response'].sum()
-    cost_in_experiment = geo_treatment.loc[
-        geo_treatment['pair'] > chosen_design['num_pairs_filtered'],
-        'spend'].sum()
+    baseline = geo_treatment['response'].sum()
+    cost_in_experiment = geo_treatment['spend'].sum()
     min_detectable_iroas_raw = calc_min_detectable_iroas.at(
         chosen_design['rmse'])
     min_detectable_iroas = average_order_value * min_detectable_iroas_raw
     min_detectable_lift = budget * 100 * min_detectable_iroas_raw / baseline
-    num_removed_geos = int(2 * chosen_design['num_pairs_filtered'])
-    num_geo_pairs = int((num_geos - num_removed_geos) / 2)
+    num_geo_pairs = int(chosen_design['num_pairs'])
+    num_removed_geos = num_geos - int(2 * chosen_design['num_pairs'])
     treat_control_removed = (f'{num_geo_pairs}  /  {num_geo_pairs}  /  ' +
                              f'{num_removed_geos}')
     revenue_covered = 100 * baseline / total_response
@@ -553,12 +549,12 @@ def format_design_table(designs: pd.DataFrame,
 
 
 def check_input_data(
-    data: pd.DataFrame,
+    input_data: pd.DataFrame,
     numeric_columns_to_impute: Optional[List[str]] = None) -> pd.DataFrame:
   """Returns data to be analysed using Trimmed Match with data imputation.
 
   Args:
-    data: data frame with columns (date, geo) and any column specified in
+    input_data: data frame with columns (date, geo) and any column specified in
       numeric_columns_to_impute, which should contain at least the columns with
       response and spend information if they have a different name than
       'response' and 'cost', respectively.
@@ -573,6 +569,7 @@ def check_input_data(
     ValueError: if one of the mandatory columns is missing.
     ValueError: if any (date, geo) pair is duplicated.
   """
+  data = input_data.copy()
   numeric_columns_to_impute = numeric_columns_to_impute or ['response', 'cost']
   mandatory_columns = set(['date', 'geo'] + numeric_columns_to_impute)
   if not mandatory_columns.issubset(data.columns):
@@ -600,3 +597,33 @@ def check_input_data(
       ])).sort_values(by=['date', 'geo']).reset_index(drop=True)
 
   return data
+
+
+def check_pairs(pretest_data: pd.DataFrame, pairs: List[pd.DataFrame]):
+  """Checks that all the candidate pairings are valid.
+
+  Args:
+    pretest_data: pd.DataFrame (date, geo, ...).
+    pairs: list of dataframes with columns (geo1, geo2, pair)
+      containing the pairs of geos to use for the power analysis.
+
+  Raises:
+    ValueError: if the pairs is not a list.
+    ValueError: if any geo is duplicated.
+    ValueError: if a geo appears in the pairing but not in the pretest data.
+    ValueError: if a pair has more than two geos.
+  """
+  if not isinstance(pairs, list):
+    raise ValueError('pairs must be a list of dataframes.')
+  for candidate in pairs:
+    geos_in_pairs = set(candidate['geo1']) | set(candidate['geo2'])
+    if not geos_in_pairs.issubset(set(pretest_data['geo'])):
+      raise ValueError(
+          'The geos ' +
+          f'{geos_in_pairs - set(pretest_data["geo"])} ' +
+          'appear in the pairs but not in the pretest data.')
+    if len(geos_in_pairs) != (len(candidate['geo1']) +
+                              len(candidate['geo2'])):
+      raise ValueError(f'Some geos are duplicated in the pairing {candidate}.')
+    if not np.alltrue(candidate['pair'].value_counts() == 1):
+      raise ValueError('a pair should only have two geos.')

@@ -107,7 +107,7 @@ py_test(
 
 py_test(
     name = "trimmed_match_design_test",
-    size = "medium",
+    size = "large",
     srcs = [
         "tests/trimmed_match_design_test.py",
     ],
