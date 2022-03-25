@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """Utilities functions to report the experiment results in the colab.
 """
 import collections

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """Module to evaluate root mean square error (RMSE) from matched pairs."""
 from typing import Dict, List, Tuple
 

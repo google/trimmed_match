@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """Tests for trimmed_match.design.tests.util."""
 from absl.testing import absltest
 from absl.testing import parameterized

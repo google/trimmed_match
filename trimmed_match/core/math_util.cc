@@ -57,34 +57,41 @@ double StudentizedTrimmedMean(const std::vector<double>& residuals,
       << "trim_rate must be in [0, 0.5), but got " << trim_rate;
   CHECK(!residuals.empty()) << "residuals is empty";
   const int size = static_cast<int>(residuals.size());
-  const int n_left = static_cast<int>(std::ceil(trim_rate * size));
-  CHECK(2 * n_left + 1 < size)
+  const int n_trimmed_from_left_tail = static_cast<int>(
+      std::ceil(trim_rate * size));
+  CHECK(2 * n_trimmed_from_left_tail + 1 < size)
       << "At least 2 values must be left after trimming, but got "
-      << size - 2 * n_left;
+      << size - 2 * n_trimmed_from_left_tail;
 
   std::vector<double> res_copy(residuals);
-  std::nth_element(res_copy.begin(), res_copy.begin() + n_left, res_copy.end());
-  std::nth_element(res_copy.begin() + n_left, res_copy.end() - n_left,
-                   res_copy.end());
+  std::partial_sort(res_copy.begin(), res_copy.end()- n_trimmed_from_left_tail,
+                    res_copy.end());
 
   double trim_sum = 0.0;
-  for (int i = n_left; i < size - n_left; ++i) {
+  for (int i = n_trimmed_from_left_tail;
+    i < size - n_trimmed_from_left_tail; ++i) {
     trim_sum += res_copy[i];
   }
 
   double winsorized_mean =
-      (trim_sum + n_left * (res_copy[n_left] + res_copy[size - n_left - 1])) /
+      (trim_sum + n_trimmed_from_left_tail *
+       (res_copy[n_trimmed_from_left_tail] +
+        res_copy[size - n_trimmed_from_left_tail - 1])) /
       size;
   double sum_winsorized_squares =
-      n_left * (Square(res_copy[n_left] - winsorized_mean) +
-                Square(res_copy[size - n_left - 1] - winsorized_mean));
-  for (int i = n_left; i < size - n_left; ++i) {
+      n_trimmed_from_left_tail * (
+          Square(res_copy[n_trimmed_from_left_tail] - winsorized_mean) +
+          Square(res_copy[size - n_trimmed_from_left_tail - 1] -
+                 winsorized_mean));
+  for (int i = n_trimmed_from_left_tail; i < size - n_trimmed_from_left_tail;
+    ++i) {
     sum_winsorized_squares += Square(res_copy[i] - winsorized_mean);
   }
 
-  return (trim_sum / (size - 2 * n_left)) /
-         std::sqrt(sum_winsorized_squares / (size - 2 * n_left) /
-                   (size - 2 * n_left - 1));
+  return (trim_sum / (size - 2 * n_trimmed_from_left_tail)) /
+         std::sqrt(sum_winsorized_squares /
+                   (size - 2 * n_trimmed_from_left_tail) /
+                   (size - 2 * n_trimmed_from_left_tail - 1));
 }
 
 QuadraticInequality::QuadraticInequality(const double a, const double b,

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """The python library to implement the Trimmed Match estimator.
 
 See the tech details in https://ai.google/research/pubs/pub48448/.

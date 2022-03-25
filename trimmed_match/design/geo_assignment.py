@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """A method to generate random geo assignment that passes the balance tests."""
 
 from typing import List

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 r"""Generate a simple simulated dataset for the colabs.
 
 Run this script to create two csv files under the folder specified in the flag

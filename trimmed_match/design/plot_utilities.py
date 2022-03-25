@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """Functions to plot the results and diagnostics of a TrimmedMatch design."""
 
 from typing import Dict, Tuple
@@ -287,8 +286,8 @@ def plot_paired_comparison(
         x=time_window_for_design.first_day, color='red', ls='--')
 
     g.axes[ind].legend([
-        'control' + ' (geo {})'.format(cont), 'treatment' +
-        ' (geo {})'.format(treat), 'Evaluation period', 'Training period'
+        'treatment' + ' (geo {})'.format(treat), 'control' +
+        ' (geo {})'.format(cont), 'Evaluation period', 'Training period'
     ],
                        loc=legend_location)
 

@@ -35,7 +35,9 @@ GeoxDataUtil::GeoxDataUtil(const std::vector<GeoPairValues>& geox_data)
   }
   std::sort(geox_data_.begin(), geox_data_.end(),
             [](const GeoPairValues& a, const GeoPairValues& b) {
-              return (a.delta_cost < b.delta_cost);
+              if (a.delta_cost == b.delta_cost)
+                return a.delta_response < b.delta_response;
+              return a.delta_cost < b.delta_cost;
             });
 
   // Break ties if any.
