@@ -135,8 +135,8 @@ class GeoAssignmentTest(absltest.TestCase):
     aa_data = pd.DataFrame({
         'geo': [1, 2, 3, 4, 5, 6],
         'pair': [1, 1, 2, 2, 3, 3],
-        'response': [1, 1, 1, 1, 1, 1],
-        'spend': [1, 1, 1, 1, 1, 1]
+        'response': [1, 1, 1, 1, 1, 2],
+        'spend': [1, 1, 1, 1, 1, 2]
     })
     assignment = generate_assignment(aa_data, aa_data)['assignment']
     delta_responses = calculate_paired_difference(

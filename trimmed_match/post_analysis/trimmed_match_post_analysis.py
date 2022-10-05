@@ -28,8 +28,9 @@ TrimmedMatchData = collections.namedtuple('TrimmedMatchData', [
     'control_cost', 'epsilon'
 ])
 TrimmedMatchResults = collections.namedtuple('TrimmedMatchResults', [
-    'data', 'report', 'trimmed_pairs', 'incremental_cost', 'lift',
-    'treatment_response'
+    'data', 'report', 'trimmed_pairs', 'incremental_cost',
+    'incremental_response', 'treatment_response', 'control_response',
+    'incremental_response_lower', 'incremental_response_upper'
 ])
 
 
@@ -99,7 +100,8 @@ def calculate_experiment_results(
     data: TrimmedMatchData,
     max_trim_rate: float = 0.25,
     confidence: float = 0.80,
-    trim_rate: float = -1.0) -> TrimmedMatchResults:
+    trim_rate: float = -1.0,
+    ) -> TrimmedMatchResults:
   """Calculate the results of an experiment with Trimmed Match.
 
   Args:
@@ -130,8 +132,15 @@ def calculate_experiment_results(
 
   trimmed_pairs = [data.pair[x] for x in fit.trimmed_pairs_indices]
   increm_cost = sum(data.treatment_cost) - sum(data.control_cost)
-  lift = fit.estimate * increm_cost
+  incremental_response = fit.estimate * increm_cost
+  if increm_cost >= 0:
+    incremental_response_lower = fit.conf_interval_low * increm_cost
+    incremental_response_upper = fit.conf_interval_up * increm_cost
+  else:
+    incremental_response_lower = fit.conf_interval_up * increm_cost
+    incremental_response_upper = fit.conf_interval_low * increm_cost
   treatment_response = sum(data.treatment_response)
+  control_response = sum(data.control_response)
   epsilon = fit.epsilons
   data_updated = data._replace(epsilon=epsilon)
 
@@ -140,8 +149,11 @@ def calculate_experiment_results(
       report=fit,
       trimmed_pairs=trimmed_pairs,
       incremental_cost=increm_cost,
-      lift=lift,
+      incremental_response=incremental_response,
+      incremental_response_lower=incremental_response_lower,
+      incremental_response_upper=incremental_response_upper,
       treatment_response=treatment_response,
+      control_response=control_response,
   )
   return results
 
@@ -169,11 +181,11 @@ def report_experiment_results(results: TrimmedMatchResults,
   print('cost = {}'.format(
       util.human_readable_number(results.incremental_cost)))
   print('\nincremental response = {}'.format(
-      util.human_readable_number(results.lift)))
+      util.human_readable_number(results.incremental_response)))
   print('\ntreatment response = {}'.format(
       util.human_readable_number(results.treatment_response)))
   print('\nincremental response as % of treatment response = {:.2f}%\n'.format(
-      results.lift * 100 / results.treatment_response))
+      results.incremental_response * 100 / results.treatment_response))
 
 
 def check_input_data(

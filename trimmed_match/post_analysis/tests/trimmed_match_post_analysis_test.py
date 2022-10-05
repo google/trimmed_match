@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Tests for trimmed_match_post_analysis."""
-import collections
 from unittest import mock
 
 import numpy as np
@@ -22,11 +21,7 @@ from trimmed_match.post_analysis import trimmed_match_post_analysis
 
 import unittest
 
-
-TrimmedMatchData = collections.namedtuple('TrimmedMatchData', [
-    'pair', 'treatment_response', 'control_response', 'treatment_cost',
-    'control_cost', 'epsilon'
-])
+TrimmedMatchData = trimmed_match_post_analysis.TrimmedMatchData
 
 
 class TrimmedMatchPostAnalysis(unittest.TestCase):
@@ -136,8 +131,8 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
     estimate = sum(delta_response[2:]) / sum(delta_spend[2:])
     trim_rate = 0.25
     confidence = 0.9
-    conf_interval_low = -29.374
-    conf_interval_up = 1.619
+    conf_interval_low = -29.374179
+    conf_interval_up = 1.618974
     epsilons = [
         delta_response[x] - delta_spend[x] * estimate
         for x in range(len(delta_response))
@@ -145,8 +140,11 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
     trimmed_pairs_indices = [0, 1]
     trimmed_pairs = [self.data.pair[x] for x in trimmed_pairs_indices]
     incremental_cost = 13.0
-    lift = 13.0 * estimate
+    incremental_response = 13.0 * estimate
+    incremental_response_lower = incremental_cost * conf_interval_low
+    incremental_response_upper = incremental_cost * conf_interval_up
     treatment_response = 122.0
+    control_response = 100.0
     results = trimmed_match_post_analysis.calculate_experiment_results(
         self.data, max_trim_rate=0.25, confidence=0.9, trim_rate=-1)
 
@@ -159,9 +157,79 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
     self.assertListEqual(results.trimmed_pairs, trimmed_pairs)
     self.assertTrue(np.allclose(results.data.epsilon, epsilons, atol=1e-5))
     self.assertAlmostEqual(incremental_cost, results.incremental_cost, places=3)
-    self.assertAlmostEqual(lift, results.lift, places=3)
+    self.assertAlmostEqual(
+        incremental_response, results.incremental_response, places=3)
+    self.assertAlmostEqual(
+        incremental_response_lower,
+        results.incremental_response_lower,
+        places=3)
+    self.assertAlmostEqual(
+        incremental_response_upper,
+        results.incremental_response_upper,
+        places=3)
     self.assertAlmostEqual(
         treatment_response, results.treatment_response, places=3)
+    self.assertAlmostEqual(
+        control_response, results.control_response, places=3)
+
+  def testCalculateExperimentResultsNegativeIncrementalCost(self):
+    """Checks that the CI for incremental response is correct with negative incremental cost."""
+    dataframe = self.dataframe.copy()
+    # flip assignment
+    dataframe['assignment'] = 1 - dataframe['assignment']
+    data = trimmed_match_post_analysis.prepare_data_for_post_analysis(
+        dataframe, exclude_cooldown=True)
+    delta_response = [
+        data.treatment_response[x] - data.control_response[x]
+        for x in range(len(data.treatment_response))
+    ]
+    delta_spend = [
+        data.treatment_cost[x] - data.control_cost[x]
+        for x in range(len(data.treatment_response))
+    ]
+    estimate = sum(delta_response[2:]) / sum(delta_spend[2:])
+    trim_rate = 0.25
+    confidence = 0.9
+    conf_interval_low = -29.374179
+    conf_interval_up = 1.618974
+    epsilons = [
+        delta_response[x] - delta_spend[x] * estimate
+        for x in range(len(delta_response))
+    ]
+    trimmed_pairs_indices = [0, 1]
+    trimmed_pairs = [data.pair[x] for x in trimmed_pairs_indices]
+    incremental_cost = - 13.0
+    incremental_response = incremental_cost * estimate
+    incremental_response_lower = incremental_cost * conf_interval_up
+    incremental_response_upper = incremental_cost * conf_interval_low
+    treatment_response = 100.0
+    control_response = 122.0
+    results = trimmed_match_post_analysis.calculate_experiment_results(
+        data, max_trim_rate=0.25, confidence=0.9, trim_rate=-1)
+
+    fit = results.report
+    self.assertAlmostEqual(fit.estimate, estimate, places=3)
+    self.assertAlmostEqual(fit.trim_rate, trim_rate, places=3)
+    self.assertAlmostEqual(fit.confidence, confidence, places=3)
+    self.assertAlmostEqual(fit.conf_interval_low, conf_interval_low, places=3)
+    self.assertAlmostEqual(fit.conf_interval_up, conf_interval_up, places=3)
+    self.assertListEqual(results.trimmed_pairs, trimmed_pairs)
+    self.assertTrue(np.allclose(results.data.epsilon, epsilons, atol=1e-5))
+    self.assertAlmostEqual(incremental_cost, results.incremental_cost, places=3)
+    self.assertAlmostEqual(
+        incremental_response, results.incremental_response, places=3)
+    self.assertAlmostEqual(
+        incremental_response_lower,
+        results.incremental_response_lower,
+        places=3)
+    self.assertAlmostEqual(
+        incremental_response_upper,
+        results.incremental_response_upper,
+        places=3)
+    self.assertAlmostEqual(
+        treatment_response, results.treatment_response, places=3)
+    self.assertAlmostEqual(
+        control_response, results.control_response, places=3)
 
   def testUnequalGroupSizes(self):
     temp_df = self.dataframe.copy()

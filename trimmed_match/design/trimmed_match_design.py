@@ -348,6 +348,11 @@ class TrimmedMatchGeoXDesign(object):
       for budget in budget_list:
         for ind in pairs_index_list:
 
+          if self.geo_level_eval_data[ind]['spend'].sum() < _SPEND_TOLERANCE:
+            raise ValueError('the total spend during the evaluation period ' +
+                             f'for the pairing in index {ind} is ' +
+                             f'<{_SPEND_TOLERANCE}.')
+
           matched_rmse_class = MatchedPairsRMSE(self._geox_type,
                                                 self.geo_level_eval_data[ind],
                                                 budget, iroas)

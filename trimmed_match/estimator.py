@@ -33,6 +33,10 @@ TrimAndError = estimator_ext.TrimAndError
 # At least one pair must have absolute spend differrence above this value
 _MIN_SPEND_GAP = 1e-10
 
+# Perturbation coefficient used to break ties. It should be small, but large
+# enough to break ties.
+_PERTURBATION = 2 ** (-40)
+
 # This trim rate removes half of the data
 RATE_TO_TRIM_HALF_DATA = 0.25
 
@@ -77,7 +81,7 @@ class Report:
                                           self.conf_interval_up)
 
 
-_VectorPerturb = lambda x, y: (x + y) * (1 + y)
+_VectorPerturb = lambda x, y: (x + np.finfo(float).tiny) * (1 + y)
 
 
 class TrimmedMatch(object):
@@ -108,7 +112,7 @@ class TrimmedMatch(object):
       max_trim_rate is negative.
     """
 
-    def HasTies():
+    def CheckForTies():
       """Checks if delta_spend or {theta[i,j]: i<j} has duplicated values.
 
       Note theta[i,j] is the ratio of (delta_response[i] - delta_response[j]) to
@@ -137,10 +141,8 @@ class TrimmedMatch(object):
         if not thetaij_has_ties:
           return 0
         else:
-          warnings.warn("thetaij has ties! Breaking ties with perturbation.")
           return 1
       else:
-        warnings.warn("delta_spend has ties! Breaking ties with perturbation.")
         return 2
 
     if len(delta_response) != len(delta_spend):
@@ -158,19 +160,21 @@ class TrimmedMatch(object):
 
     # adding small amount of non-linear perburtation to break potential ties.
     # c.f. Algorithm 1 in https://arxiv.org/pdf/1908.02922.pdf
-    ties = HasTies()
+    ties = CheckForTies()
     if ties == 0:
       perturb_dspend = perturb_dresponse = np.zeros(len(delta_response))
     else:
+      warnings.warn("thetaij has ties! Breaking ties with perturbation.")
       perturb_dresponse = np.arange(len(delta_response))**1.5
       perturb_dresponse = perturb_dresponse - np.median(perturb_dresponse)
       if ties == 2:
+        warnings.warn("delta_spend has ties! Breaking ties with perturbation.")
         perturb_dspend = np.arange(len(delta_spend)) - len(delta_spend) * 0.5
       else:
         perturb_dspend = np.zeros(len(delta_response))
     perturb_dspend, perturb_dresponse = [
-        perturb_dspend * np.finfo(float).eps,
-        perturb_dresponse * np.finfo(float).eps
+        perturb_dspend * _PERTURBATION,
+        perturb_dresponse * _PERTURBATION
     ]
 
     self._tm = estimator_ext.TrimmedMatch(

@@ -824,6 +824,28 @@ class TrimmedMatchDesignTest(unittest.TestCase):
             use_cross_validation=True,
             num_simulations=100)
 
+  def testReportCandidateDesignWithNoSpendDuringEval(self):
+    """Checks the calculation with no spend during evaluation period."""
+
+    self.test_class._pretest_data = pd.concat(
+        [self.test_class._pretest_data, self.add_pair], sort=False)
+    self.test_class._pretest_data.loc[
+        self.test_class._pretest_data['date'] >= '2019-10-01', 'spend'] = 0
+    for geox_type in GeoXType:
+      if geox_type == GeoXType.CONTROL:
+        continue
+      self.test_class._geox_type = geox_type
+      with self.assertRaisesRegex(
+          ValueError,
+          r'the total spend during the evaluation period for the pairing ' +
+          'in index 0 is <1e-10.'
+      ):
+        self.test_class.report_candidate_designs(
+            budget_list=[30, 40],
+            iroas_list=[0, 2],
+            use_cross_validation=True,
+            num_simulations=100)
+
   def testPlotCandidateDesign(self):
     """Check the function plot_candidate_design outputs a dict of axes."""
 
