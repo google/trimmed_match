@@ -14,13 +14,12 @@
 # ============================================================================
 """Install script for setuptools."""
 
-from distutils import sysconfig
-
 import os
 import posixpath
 import re
 import shutil
 import sys
+import sysconfig
 
 import setuptools
 from setuptools.command import build_ext
@@ -65,9 +64,10 @@ class BuildBazelExtension(build_ext.build_ext):
       workspace_contents = f.read()
 
     with open('WORKSPACE', 'w') as f:
-      f.write(WORKSPACE_PYTHON_HEADERS_PATTERN.sub(
-          sysconfig.get_python_inc().replace(os.path.sep, posixpath.sep),
-          workspace_contents))
+      f.write(
+          WORKSPACE_PYTHON_HEADERS_PATTERN.sub(
+              sysconfig.get_path('include').replace(os.path.sep, posixpath.sep),
+              workspace_contents))
 
     if not os.path.exists(self.build_temp):
       os.makedirs(self.build_temp)

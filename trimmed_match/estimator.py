@@ -217,7 +217,7 @@ class TrimmedMatch(object):
     ranks = np.empty_like(temp)
     ranks[temp] = np.arange(len(temp))
     num_pairs = len(ranks)
-    left_trim = np.ceil(num_pairs * output.trim_rate)
+    left_trim = np.round(num_pairs * output.trim_rate)
     trimmed_pairs_indices = set([
         i for i in np.arange(len(ranks))
         if (ranks[i] < left_trim) or (ranks[i] > num_pairs - left_trim - 1)

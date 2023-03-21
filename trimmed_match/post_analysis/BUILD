@@ -27,6 +27,7 @@ py_test(
     deps = [
         ":trimmed_match_post_analysis",
         "//trimmed_match:estimator",
+        "//trimmed_match/design:common_classes",
         "//trimmed_match/design:plot_utilities",
     ],
 )

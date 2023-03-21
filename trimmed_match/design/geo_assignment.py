@@ -51,7 +51,7 @@ def binomial_sign_test(delta_responses: List[float],
 def trimmed_match_aa_test(delta_responses: List[float],
                           delta_spends: List[float],
                           confidence: float = 0.8) -> bool:
-  """Returns whether the number of positive pairs is about half of total.
+  """Returns whether the confidence interval for Trimmed Match contains zero.
 
   Args:
     delta_responses: response differences from each geo pair.

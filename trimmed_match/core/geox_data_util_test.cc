@@ -81,6 +81,39 @@ TEST(GeoxDataUtilTest, GeoXDataUtilWithDeltaCostTied) {
   }
 }
 
+TEST(GeoxDataUtilTest, GeoXDataUtilWithDeltaResponseTied) {
+  const std::vector<GeoPairValues> geox_data = {{1, 4}, {1, -3}, {1, 1}};
+  const GeoxDataUtil geox_util(geox_data);
+  const std::vector<GeoPairValues> geo_paired_values =
+      geox_util.ExtractGeoxData();
+  // We sort the geox_data by the delta_cost first.
+  const std::vector<GeoPairValues> expected_geox_data = {
+      {/*delta_response=*/1, /*delta_cost=*/-3},
+      {/*delta_response=*/1, /*delta_cost=*/1},
+      {/*delta_response=*/1, /*delta_cost=*/4}};
+  for (int i = 0; i < geox_data.size(); ++i) {
+    EXPECT_EQ(expected_geox_data[i].delta_response,
+              geo_paired_values[i].delta_response);
+    EXPECT_EQ(expected_geox_data[i].delta_cost,
+              geo_paired_values[i].delta_cost);
+  }
+
+  const std::vector<PairedDelta> paired_delta = geox_util.ExtractPairedDelta();
+  // We generate 3 delta in total. Since all delta reponses are the same,
+  // delta_ij in paired_delta are all 0. However, the order of paired_delta has
+  // to be determined even if there is tie in delta_ij.
+  const std::vector<PairedDelta> expected_paired_delta = {
+      {/*i=*/2, /*j=*/1, /*delta_ij=*/0},
+      {/*i=*/2, /*j=*/0, /*delta_ij=*/0},
+      {/*i=*/1, /*j=*/0, /*delta_ij=*/0},
+  };
+  for (int n = 0; n < paired_delta.size(); ++n) {
+    EXPECT_EQ(expected_paired_delta[n].i, paired_delta[n].i);
+    EXPECT_EQ(expected_paired_delta[n].j, paired_delta[n].j);
+    EXPECT_EQ(expected_paired_delta[n].delta, paired_delta[n].delta);
+  }
+}
+
 TEST_F(GeoxDataUtilInternalTest, ExtractGeoxData) {
   const std::vector<GeoPairValues> result = geox_util_.ExtractGeoxData();
 

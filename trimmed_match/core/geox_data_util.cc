@@ -29,8 +29,9 @@ namespace trimmedmatch {
 
 GeoxDataUtil::GeoxDataUtil(const std::vector<GeoPairValues>& geox_data)
     : num_pairs_(static_cast<int>(geox_data.size())) {
+  geox_data_.reserve(geox_data.size());
   // Sort geox data by delta_cost.
-  for (int i = 0; i < num_pairs_; ++i) {
+  for (int i = 0; i < geox_data.size(); ++i) {
     geox_data_.push_back(geox_data[i]);
   }
   std::sort(geox_data_.begin(), geox_data_.end(),
@@ -117,9 +118,6 @@ std::vector<double> GeoxDataUtil::FindAllZerosOfTrimmedMean(
   const int n2 = num_pairs_ - 1 - n1;
   std::vector<bool> body_set(num_pairs_, false);
 
-  // Identifies the range of the estimate.
-  const auto delta_range = DeltaRange(n1, n2);
-
   // Initializes the body set and tracks the sum of delta_responses and
   // delta_costs.
   double sum_delta_response = 0.0;
@@ -139,10 +137,6 @@ std::vector<double> GeoxDataUtil::FindAllZerosOfTrimmedMean(
   bounds.push_back(-std::numeric_limits<double>::max());
 
   for (const auto& x : paired_delta_sorted_) {
-    if ((x.delta < delta_range.delta_min) ||
-        (x.delta > delta_range.delta_max)) {
-      continue;
-    }
     if (body_set[x.i] == body_set[x.j]) continue;
 
     // Updates iROAS and body_set.
@@ -418,12 +412,11 @@ int FindFirstJumpInDeltaCostFrom(const std::vector<GeoPairValues>& geox_data,
 std::vector<PairedDelta> GetPairedDeltaSorted(
     const std::vector<GeoPairValues>& geox_data) {
   const int num_pairs = static_cast<int>(geox_data.size());
-  std::vector<PairedDelta> paired_delta_sorted(
-      static_cast<int>((0.5 * num_pairs) * (num_pairs - 1)));
+  std::vector<PairedDelta> paired_delta_sorted(num_pairs * (num_pairs - 1) / 2);
 
   // Creates paired_delta_sorted_.
   int iter = 0;
-  for (int i = 1; i < num_pairs; ++i)
+  for (int i = 1; i < num_pairs; ++i) {
     for (int j = 0; j < i; ++j) {
       const double delta = GeoxDataUtil::CalculateRatio(
           geox_data[i].delta_response - geox_data[j].delta_response,
@@ -431,9 +424,13 @@ std::vector<PairedDelta> GetPairedDeltaSorted(
       paired_delta_sorted[iter] = {i, j, delta};
       iter++;
     }
+  }
 
   std::sort(paired_delta_sorted.begin(), paired_delta_sorted.end(),
-            [&](const PairedDelta& a, const PairedDelta& b) {
+            [](const PairedDelta& a, const PairedDelta& b) {
+              if (a.delta == b.delta) {
+                return a.i == b.i ? (a.j > b.j) : (a.i > b.i);
+              }
               return (a.delta < b.delta);
             });
 

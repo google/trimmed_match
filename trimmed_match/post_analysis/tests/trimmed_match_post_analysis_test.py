@@ -17,11 +17,17 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from trimmed_match.design import common_classes
 from trimmed_match.post_analysis import trimmed_match_post_analysis
 
 import unittest
 
 TrimmedMatchData = trimmed_match_post_analysis.TrimmedMatchData
+
+CONTROL = common_classes.GeoAssignment.CONTROL
+TREATMENT = common_classes.GeoAssignment.TREATMENT
+EXPERIMENT = common_classes.ExperimentPeriod.EXPERIMENT
+POST_EXPERIMENT = common_classes.ExperimentPeriod.POST_EXPERIMENT
 
 
 class TrimmedMatchPostAnalysis(unittest.TestCase):
@@ -34,24 +40,24 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         'response': [10, 10, 20, 20, 30, 30, 40, 40],
         'cost': [1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0],
         'pair': [1, 1, 1, 1, 2, 2, 2, 2],
-        'assignment': [0, 0, 1, 1, 0, 0, 1, 1],
-        'period': [1, 2, 1, 2, 1, 2, 1, 2],
+        'assignment': ([CONTROL] * 2 + [TREATMENT] * 2) * 2,
+        'period': [EXPERIMENT, POST_EXPERIMENT] * 4,
     })
     self.dataframe = pd.DataFrame({
         'geo': [1, 2, 3, 4, 5, 6, 7, 8],
         'response': [10, 11, 20, 30, 30, 33, 40, 48],
         'cost': [1.0, 2.0, 2.0, 7.0, 3.0, 5.0, 4.0, 9.0],
         'pair': [1, 1, 2, 2, 3, 3, 4, 4],
-        'assignment': [0, 1, 0, 1, 0, 1, 0, 1],
-        'period': [1, 1, 1, 1, 1, 1, 1, 1],
+        'assignment': [CONTROL, TREATMENT] * 4,
+        'period': [EXPERIMENT] * 8,
     })
     self.df = pd.DataFrame({
         'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
         'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
         'response': [10, 10, 10, 20, 20, 20, 30, 30, 30, 40, 40, 40],
         'cost': [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
-        'pair': [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
-        'assignment': [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+        'pair': [EXPERIMENT] * 6 + [POST_EXPERIMENT] * 6,
+        'assignment': ([CONTROL] * 3 + [TREATMENT] * 3) * 2,
     })
     self.data = trimmed_match_post_analysis.prepare_data_for_post_analysis(
         self.dataframe, exclude_cooldown=True)
@@ -71,7 +77,8 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
 
   def testPrepareDataWithGroupNotation(self):
     # change control to 1 and treatment to 2
-    self.test_data['assignment'] = self.test_data['assignment'] + 1
+    self.test_data['assignment'] = np.where(
+        self.test_data['assignment'] == TREATMENT, 2, 1)
     dt = trimmed_match_post_analysis.prepare_data_for_post_analysis(
         self.test_data,
         exclude_cooldown=True,
@@ -89,12 +96,13 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
 
   def testPrepareDataWithInverseNotation(self):
     # change control to 1 and treatment to 0
-    self.test_data['assignment'] = 1 - self.test_data['assignment']
+    self.test_data['assignment'] = ((CONTROL + TREATMENT) -
+                                    self.test_data['assignment'])
     dt = trimmed_match_post_analysis.prepare_data_for_post_analysis(
         self.test_data,
         exclude_cooldown=True,
-        group_control=1,
-        group_treatment=0)
+        group_control=TREATMENT,
+        group_treatment=CONTROL)
     self.assertTupleEqual(
         dt, TrimmedMatchData(
             pair=[1, 2],
@@ -176,7 +184,7 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
     """Checks that the CI for incremental response is correct with negative incremental cost."""
     dataframe = self.dataframe.copy()
     # flip assignment
-    dataframe['assignment'] = 1 - dataframe['assignment']
+    dataframe['assignment'] = (CONTROL + TREATMENT) - dataframe['assignment']
     data = trimmed_match_post_analysis.prepare_data_for_post_analysis(
         dataframe, exclude_cooldown=True)
     delta_response = [
@@ -230,6 +238,16 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         treatment_response, results.treatment_response, places=3)
     self.assertAlmostEqual(
         control_response, results.control_response, places=3)
+
+  def testPrepareDataCorrectGroupLabels(self):
+    with self.assertRaisesRegex(
+        ValueError,
+        r'The data do not have observations for the two groups.' +
+        r'The labels found in the data in input are ' +
+        fr'{set(self.dataframe.assignment.values)}, and the expected ' +
+        r'labels are: Treatment=10, Control=20'):
+      trimmed_match_post_analysis.prepare_data_for_post_analysis(
+          self.dataframe, group_treatment=10, group_control=20)
 
   def testUnequalGroupSizes(self):
     temp_df = self.dataframe.copy()
@@ -321,7 +339,7 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
         'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
         'pair': [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
-        'assignment': [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+        'assignment': ([CONTROL] * 3 + [TREATMENT] * 3) * 2,
         'response': [10, 10, 10, 20, 0.0, 20, 30, 30, 30, 40, 40, 40],
         'cost': [1.0, 1.0, 1.0, 2.0, 0.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
     }).sort_values(by=['date', 'geo']).reset_index(drop=True)
@@ -365,10 +383,10 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         r'Check the data and the values used to indicate the ' +
         r'assignments for treatment and control. The labels ' +
         r'found in the data in input are ' +
-        r'\[0, 1\], and the expected labels ' +
-        r'are: Treatment=1, Control=2'):
+        fr'\[{CONTROL}, {TREATMENT}\], and the expected labels ' +
+        r'are: Treatment=10, Control=20'):
       trimmed_match_post_analysis.check_input_data(
-          self.df, group_control=2, group_treatment=1)
+          self.df, group_control=20, group_treatment=10)
 
   def testCheckUnequalGroupSizesInInputData(self):
     temp_df = self.df.copy()
@@ -390,8 +408,8 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
   def testCheckGeosPerPairInInputData(self):
     temp_df = self.df.copy()
     # reassign geo #2 which is in treatment, and geo #3 which is control
-    temp_df.loc[temp_df['geo'] == 2, 'assignment'] = 0
-    temp_df.loc[temp_df['geo'] == 3, 'assignment'] = 1
+    temp_df.loc[temp_df['geo'] == 2, 'assignment'] = CONTROL
+    temp_df.loc[temp_df['geo'] == 3, 'assignment'] = TREATMENT
     with self.assertRaisesRegex(
         ValueError, r'Some pairs do not have one geo for each group.'):
       trimmed_match_post_analysis.check_input_data(temp_df)
@@ -405,7 +423,7 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         'response': [10, 11],
         'cost': [1.0, 2.0],
         'pair': [1, 4],
-        'assignment': [0, 1],
+        'assignment': [CONTROL, TREATMENT],
         'period': [1, 1],
     }))
     with self.assertRaisesRegex(
@@ -438,7 +456,7 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
         'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,
         'geo': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
         'pair': [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
-        'assignment': [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+        'assignment': ([CONTROL] * 3 + [TREATMENT] * 3) * 2,
         'response': [10, 10, 10, 20, 20.0, 20, 30, 30, 30, 40, 40, 40],
         'cost': [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0],
     }).sort_values(by=['date', 'geo']).reset_index(drop=True)

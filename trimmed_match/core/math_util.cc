@@ -19,12 +19,26 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <numeric>
 #include <vector>
 
 #include "glog/logging.h"
 
 namespace trimmedmatch {
+
+namespace {
+
+// 32 is 5 bits of mantissa error; should be adequate for common errors.
+static double kEpsilon = 32 * std::numeric_limits<double>::epsilon();
+
+// Compares the given x, y are close enough to be considered equal.
+bool AlmostEqualDouble(const double x, const double y) {
+  const double relative_margin = kEpsilon * std::max(fabs(x), (fabs(y)));
+  return fabs(x - y) <= std::max(relative_margin, kEpsilon);
+}
+
+}  // namespace
 
 double TrimmedSymmetricNorm(const std::vector<double>& residuals,
                             const double trim_rate) {
@@ -40,8 +54,7 @@ double TrimmedSymmetricNorm(const std::vector<double>& residuals,
   std::nth_element(residuals_copy.begin(), residuals_copy.begin() + n_trim_left,
                    residuals_copy.end());
   std::partial_sort(residuals_copy.begin() + n_trim_left,
-                    residuals_copy.end() - n_trim_left,
-                    residuals_copy.end());
+                    residuals_copy.end() - n_trim_left, residuals_copy.end());
 
   double sum_norm = 0.0;
   for (size_t i = n_trim_left; i < size - n_trim_left; ++i) {
@@ -57,34 +70,33 @@ double StudentizedTrimmedMean(const std::vector<double>& residuals,
       << "trim_rate must be in [0, 0.5), but got " << trim_rate;
   CHECK(!residuals.empty()) << "residuals is empty";
   const int size = static_cast<int>(residuals.size());
-  const int n_trimmed_from_left_tail = static_cast<int>(
-      std::ceil(trim_rate * size));
+  const int n_trimmed_from_left_tail =
+      static_cast<int>(std::ceil(trim_rate * size));
   CHECK(2 * n_trimmed_from_left_tail + 1 < size)
       << "At least 2 values must be left after trimming, but got "
       << size - 2 * n_trimmed_from_left_tail;
 
   std::vector<double> res_copy(residuals);
-  std::partial_sort(res_copy.begin(), res_copy.end()- n_trimmed_from_left_tail,
+  std::partial_sort(res_copy.begin(), res_copy.end() - n_trimmed_from_left_tail,
                     res_copy.end());
 
   double trim_sum = 0.0;
-  for (int i = n_trimmed_from_left_tail;
-    i < size - n_trimmed_from_left_tail; ++i) {
+  for (int i = n_trimmed_from_left_tail; i < size - n_trimmed_from_left_tail;
+       ++i) {
     trim_sum += res_copy[i];
   }
 
   double winsorized_mean =
       (trim_sum + n_trimmed_from_left_tail *
-       (res_copy[n_trimmed_from_left_tail] +
-        res_copy[size - n_trimmed_from_left_tail - 1])) /
+                      (res_copy[n_trimmed_from_left_tail] +
+                       res_copy[size - n_trimmed_from_left_tail - 1])) /
       size;
   double sum_winsorized_squares =
-      n_trimmed_from_left_tail * (
-          Square(res_copy[n_trimmed_from_left_tail] - winsorized_mean) +
-          Square(res_copy[size - n_trimmed_from_left_tail - 1] -
-                 winsorized_mean));
+      n_trimmed_from_left_tail *
+      (Square(res_copy[n_trimmed_from_left_tail] - winsorized_mean) +
+       Square(res_copy[size - n_trimmed_from_left_tail - 1] - winsorized_mean));
   for (int i = n_trimmed_from_left_tail; i < size - n_trimmed_from_left_tail;
-    ++i) {
+       ++i) {
     sum_winsorized_squares += Square(res_copy[i] - winsorized_mean);
   }
 
@@ -120,18 +132,23 @@ std::pair<double, double> QuadraticInequality::Solver(
   // If f1 and f2 have different signs, then a_ and b_ cannot be both 0.0, and
   // the determinant must be nonnegative.
   if (f1 >= 0.0 && f2 < 0.0) {
-    const double x_right = ((a_ == 0.0) ? (0.5 * c_ / b_)
-                            : ((b_ - std::sqrt(b_ * b_ - a_ * c_)) / a_));
+    const double x_right =
+        ((a_ == 0.0) ? (0.5 * c_ / b_)
+                     : ((b_ - std::sqrt(b_ * b_ - a_ * c_)) / a_));
     return {min_value, x_right};
   }
 
   if (f1 < 0.0 && f2 >= 0.0) {
-    const double x_left = ((a_ == 0.0) ? (0.5 * c_ / b_)
-                           : ((b_ + std::sqrt(b_ * b_ - a_ * c_)) / a_));
+    const double x_left =
+        ((a_ == 0.0) ? (0.5 * c_ / b_)
+                     : ((b_ + std::sqrt(b_ * b_ - a_ * c_)) / a_));
     return {x_left, max_value};
   }
 
-  const double discriminant = b_ * b_ - a_ * c_;
+  // If discriminant is close to 0 due to precision limitations, set it to 0.
+  const double discriminant =
+      AlmostEqualDouble(b_ * b_, a_ * c_) ? 0.0 : b_ * b_ - a_ * c_;
+
   if (discriminant < 0.0 || a_ >= 0.0) {
     return {kNaN, kNaN};
   }

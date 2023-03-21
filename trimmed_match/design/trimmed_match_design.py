@@ -47,6 +47,7 @@ import pandas as pd
 import seaborn as sns
 from trimmed_match.design import common_classes
 from trimmed_match.design import geo_assignment
+from trimmed_match.design import geo_level_estimators
 from trimmed_match.design import matched_pairs_rmse
 from trimmed_match.design import plot_utilities
 from trimmed_match.design import util
@@ -62,6 +63,10 @@ _MIN_IROAS = 0
 TimeWindow = common_classes.TimeWindow
 GeoXType = common_classes.GeoXType
 MatchedPairsRMSE = matched_pairs_rmse.MatchedPairsRMSE
+GeoXEstimator = geo_level_estimators.GeoXEstimator
+
+PRE_EXPERIMENT = common_classes.ExperimentPeriod.PRE_EXPERIMENT
+EXPERIMENT = common_classes.ExperimentPeriod.EXPERIMENT
 
 
 class TrimmedMatchGeoXDesign(object):
@@ -123,6 +128,20 @@ class TrimmedMatchGeoXDesign(object):
 
     self._pretest_data = util.check_input_data(
         pretest_data, list(self._matching_metrics.keys()))
+    # Add period to pre-test data.
+    training_and_evaluation = self._pretest_data['date'].between(
+        time_window_for_design.first_day, time_window_for_design.last_day
+    ) | self._pretest_data['date'].between(
+        time_window_for_eval.first_day, time_window_for_eval.last_day
+    )
+    self._pretest_data = self._pretest_data[training_and_evaluation]
+    self._pretest_data['period'] = np.where(
+        self._pretest_data['date'].between(
+            time_window_for_eval.first_day, time_window_for_eval.last_day
+        ),
+        EXPERIMENT,
+        PRE_EXPERIMENT,
+    )
     self._time_window_for_design = time_window_for_design
     self._time_window_for_eval = time_window_for_eval
 
@@ -137,6 +156,7 @@ class TrimmedMatchGeoXDesign(object):
     # geo_level_eval_data, a list of pd.DataFrame with columns (geo, response,
     # spend, pair) for evaluation of the RMSE.
     self._geo_level_eval_data = None
+    self._geo_period_level_data = None
     self._pair_index = 0
 
   @property
@@ -146,6 +166,10 @@ class TrimmedMatchGeoXDesign(object):
   @property
   def geo_level_eval_data(self):
     return self._geo_level_eval_data
+
+  @property
+  def geo_period_level_data(self):
+    return self._geo_period_level_data
 
   @property
   def pair_index(self):
@@ -170,9 +194,7 @@ class TrimmedMatchGeoXDesign(object):
     return latest_data.groupby(
         by='geo', as_index=False)[[self._response, self._spend_proxy]].sum()
 
-  def create_geo_pairs(
-      self,
-      use_cross_validation: bool = True):
+  def create_geo_pairs(self, use_cross_validation: bool = True):
     """Creates geo pairs using pretest data and data to evaluate the RMSE.
 
     Args:
@@ -180,43 +202,33 @@ class TrimmedMatchGeoXDesign(object):
         during time_window_for_design but not during time_window_for_eval,
         otherwise geo pairing uses pretest data during time_window_for_design
         and time_window_for_eval.
-
     """
-    training_and_evaluation = (
-        self._pretest_data['date'].between(
-            self._time_window_for_design.first_day,
-            self._time_window_for_design.last_day)
-        | self._pretest_data['date'].between(
-            self._time_window_for_eval.first_day,
-            self._time_window_for_eval.last_day))
-    pretest = self._pretest_data[training_and_evaluation].copy()
-    pretest['period'] = (pretest['date'].between(
-        self._time_window_for_eval.first_day,
-        self._time_window_for_eval.last_day)).astype(int)
-
+    pretest = self._pretest_data.copy()
     for metric in self._matching_metrics:
       if use_cross_validation:
-        pretest['training_' +
-                metric] = (1 - pretest['period']) * pretest[metric]
+        pretest['training_' + metric] = (
+            pretest['period'] == PRE_EXPERIMENT
+        ) * pretest[metric]
       else:
         pretest['training_' + metric] = pretest[metric]
-
-    for metric in self._matching_metrics:
-      pretest['evaluation_' + metric] = pretest[metric] * pretest['period']
 
     pretest = pretest.groupby('geo', as_index=False).sum()
     # if the number of geos is odd, remove the largest geo for pairing
     if self._pretest_data['geo'].nunique() % 2 != 0:
-      largest_geo = pretest.sort_values(
-          'response', ascending=False)['geo'].iloc[0]
+      largest_geo = pretest.sort_values('response', ascending=False)[
+          'geo'
+      ].iloc[0]
       pretest = pretest[pretest['geo'] != largest_geo]
+
     pretest['rankscore'] = 0
     for metric, weight in self._matching_metrics.items():
       pretest['rankscore'] += weight * (
-          pretest['training_' + metric] / sum(pretest['training_' + metric]))
+          pretest['training_' + metric] / sum(pretest['training_' + metric])
+      )
 
     geos_ordered = pretest.sort_values(
-        ['rankscore', 'geo'], ascending=[False, True]).reset_index(drop=True)
+        ['rankscore', 'geo'], ascending=[False, True]
+    ).reset_index(drop=True)
     geopairs_left = geos_ordered.iloc[::2, :].reset_index(drop=True)
     geopairs_right = geos_ordered.iloc[1::2, :].reset_index(drop=True)
 
@@ -228,15 +240,13 @@ class TrimmedMatchGeoXDesign(object):
               geopairs_right['training_' + metric]) /
           sum(geos_ordered['training_' + metric]))
 
-    geopairs_left = geopairs_left.assign(dist=dist)
-    geopairs_right = geopairs_right.assign(dist=dist)
     pairs = (pd.DataFrame({
         'geo1': geopairs_left['geo'],
         'geo2': geopairs_right['geo'],
-        'distance': geopairs_left['dist']
+        'distance': dist
     }).sort_values(by=['distance', 'geo1'],
                    ascending=[False, True])).reset_index(drop=True)
-    npairs = geopairs_left.shape[0]
+    npairs = pairs.shape[0]
     pairs['pair'] = range(1, npairs + 1)
 
     self._pairs = [
@@ -253,15 +263,16 @@ class TrimmedMatchGeoXDesign(object):
     if self.pairs is None:
       raise ValueError('pairs are not specified.')
 
-    pretest = self._pretest_data[self._pretest_data['date'].between(
-        self._time_window_for_eval.first_day,
-        self._time_window_for_eval.last_day)].groupby(
-            'geo', as_index=False).sum()
+    pretest_data = self._pretest_data.copy()
+    pretest_data = pretest_data.groupby(['geo', 'period'],
+                                        as_index=False).sum()
+    eval_data = pretest_data[pretest_data['period'] == EXPERIMENT].groupby(
+        'geo', as_index=False).sum()
 
     geo_level_eval_data = []
+    geo_period_level_data = []
     for pairing in self.pairs:
       pairing.sort_values(by='pair', inplace=True, ignore_index=True)
-
       geo_to_pair = pd.DataFrame({
           'geo':
               pairing['geo1'].tolist() +
@@ -270,9 +281,16 @@ class TrimmedMatchGeoXDesign(object):
               pairing['pair'].tolist() +
               pairing['pair'].tolist()
       })
-
       geo_level_eval_data.append(pd.merge(
-          pretest[['geo', self._response, self._spend_proxy]],
+          eval_data[['geo', self._response, self._spend_proxy]],
+          geo_to_pair,
+          on='geo').rename(columns={
+              self._response: 'response',
+              self._spend_proxy: 'spend'
+          }).sort_values(by=['pair', 'geo']).reset_index(drop=True))
+
+      geo_period_level_data.append(pd.merge(
+          pretest_data[['geo', 'period', self._response, self._spend_proxy]],
           geo_to_pair,
           on='geo').rename(columns={
               self._response: 'response',
@@ -280,14 +298,16 @@ class TrimmedMatchGeoXDesign(object):
           }).sort_values(by=['pair', 'geo']).reset_index(drop=True))
 
     self._geo_level_eval_data = geo_level_eval_data
+    self._geo_period_level_data = geo_period_level_data
 
   def report_candidate_designs(
       self,
       budget_list: List[float],
       iroas_list: List[float],
       use_cross_validation: bool = True,
-      num_simulations=200,
-      max_trim_rate=0.10
+      num_simulations: int = 200,
+      max_trim_rate: float = 0.10,
+      estimator: GeoXEstimator = geo_level_estimators.TrimmedMatch(),
   ) -> Tuple[pd.DataFrame, Dict[Tuple[float, float, int], pd.DataFrame]]:
     """Report the RMSE of iROAS estimate and summary for each candidate design.
 
@@ -298,6 +318,7 @@ class TrimmedMatchGeoXDesign(object):
       num_simulations: int, num of simulations for RMSE evaluation.
       max_trim_rate: float, the argument for estimator.TrimmedMatch; a small
         value implies the need of less trimming, i.e. high quality pairs.
+      estimator: GeoXEstimator, to use for the analysis.
 
     Returns:
       results: pd.DataFrame, with columns (num_pairs,
@@ -316,6 +337,8 @@ class TrimmedMatchGeoXDesign(object):
 
     Raises:
       ValueError if any element in iroas_list is negative.
+      ValueError if all pairings don't have the minimum number of pairs.
+      ValueError if no suitable pairing could be found.
     """
     if self.pairs is None:
       self.create_geo_pairs(use_cross_validation)
@@ -327,43 +350,66 @@ class TrimmedMatchGeoXDesign(object):
     not_recommended_pairings = [
         x for x in range(len(self.pairs)) if num_pairs_list[x] < _MIN_NUM_PAIRS
     ]
-    warnings.warn('We will not attempt to use the pairing in position ' +
-                  f'{not_recommended_pairings} as we recommend to have' +
-                  f' at least {_MIN_NUM_PAIRS} pairs in the design.')
+    warnings.warn(
+        'We will not attempt to use the pairing in position '
+        f'{not_recommended_pairings} as we recommend to have at least '
+        f'{_MIN_NUM_PAIRS} pairs in the design.'
+    )
     pairs_index_list = [
         x for x in range(len(self.pairs)) if num_pairs_list[x] >= _MIN_NUM_PAIRS
     ]
+    if not pairs_index_list:
+      raise ValueError(
+          f'All pairings were rejected due to less than {_MIN_NUM_PAIRS} pairs '
+          'in the design.'
+      )
 
     if min(iroas_list) < _MIN_IROAS:
       invalid_iroas = [iroas for iroas in iroas_list if iroas < _MIN_IROAS]
-      raise ValueError('All elements in iroas_list must have non-negative ' +
-                       f'values, got {invalid_iroas}.')
+      raise ValueError(
+          'All elements in iroas_list must have non-negative values, got '
+          f'{invalid_iroas}.'
+      )
 
-    total_spend = self._pretest_data.loc[self._pretest_data['date'].between(
-        self._time_window_for_eval.first_day,
-        self._time_window_for_eval.last_day), self._spend_proxy].sum()
+    total_spend = self._pretest_data.loc[
+        self._pretest_data['period'] == EXPERIMENT, self._spend_proxy
+    ].sum()
     results = []
     detailed_results = {}
     for iroas in iroas_list:
       for budget in budget_list:
         for ind in pairs_index_list:
-
           if self.geo_level_eval_data[ind]['spend'].sum() < _SPEND_TOLERANCE:
-            raise ValueError('the total spend during the evaluation period ' +
-                             f'for the pairing in index {ind} is ' +
-                             f'<{_SPEND_TOLERANCE}.')
+            warnings.warn(
+                'the total spend during the evaluation period for the pairing '
+                f'in index {ind} is <{_SPEND_TOLERANCE}.'
+            )
+            continue
+
+          if self.geo_level_eval_data[ind]['response'].sum() == 0:
+            warnings.warn(
+                'the total response during the evaluation period for the '
+                f'pairing in index {ind} is 0.'
+            )
+            continue
 
           matched_rmse_class = MatchedPairsRMSE(self._geox_type,
-                                                self.geo_level_eval_data[ind],
+                                                self.geo_period_level_data[ind],
                                                 budget, iroas)
-          (expected_rmse, detailed_simulations) = matched_rmse_class.report(
-              num_simulations, max_trim_rate)
+          (rmse, detailed_simulations) = matched_rmse_class.report(
+              num_simulations=num_simulations,
+              max_trim_rate=max_trim_rate,
+              estimator=estimator)
 
           experiment_response = self.geo_level_eval_data[ind]['response'].sum()
           experiment_spend = self.geo_level_eval_data[ind]['spend'].sum()
-          spend_response_ratio = experiment_spend / experiment_response
 
-          proportion_cost_in_experiment = experiment_spend / total_spend
+          sqrt_n_sim = np.sqrt(num_simulations)
+          # Compute the std of RMSE using the delta method.
+          mse_std = (
+              (detailed_simulations.estimate - iroas)**2
+          ).std() / sqrt_n_sim
+          rmse_std = mse_std / (2 * rmse)
 
           results.append({
               'pair_index':
@@ -375,19 +421,43 @@ class TrimmedMatchGeoXDesign(object):
               'experiment_spend':
                   experiment_spend,
               'spend_response_ratio':
-                  spend_response_ratio,
+                  experiment_spend / experiment_response,
               'budget':
                   budget,
               'iroas':
                   iroas,
               'rmse':
-                  expected_rmse,
+                  rmse,
+              'rmse_std':
+                  rmse_std,
               'proportion_cost_in_experiment':
-                  proportion_cost_in_experiment,
+                  experiment_spend / total_spend,
               'rmse_cost_adjusted':
-                  expected_rmse / proportion_cost_in_experiment,
+                  rmse / (experiment_spend / total_spend),
+              'rmse_cost_adjusted_std':
+                  rmse_std / (experiment_spend / total_spend),
+              'cihw': (detailed_simulations['conf_interval_up'] -
+                       detailed_simulations['conf_interval_low']).mean() / 2,
+              'std':
+                  detailed_simulations.estimate.std(),
+              'bias': (detailed_simulations.estimate - iroas).mean(),
+              'bias_std':
+                  (detailed_simulations.estimate - iroas).std() / sqrt_n_sim,
+              'trim_rate':
+                  detailed_simulations.trim_rate.mean(),
+              'trim_rate_std':
+                  detailed_simulations.trim_rate.std() / sqrt_n_sim,
+              'trim_rate_cost':
+                  detailed_simulations.trim_rate_cost.mean(),
+              'trim_rate_cost_std':
+                  detailed_simulations.trim_rate_cost.std() / sqrt_n_sim,
           })
           detailed_results[(budget, iroas, ind)] = detailed_simulations
+
+    if not results:
+      raise ValueError('All the pairings that were tested had total spend '
+                       f'<{_SPEND_TOLERANCE} or total response equal to 0 '
+                       'during the evaluation period.')
 
     results = pd.DataFrame(results)
     return (results, detailed_results)

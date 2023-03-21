@@ -124,4 +124,8 @@ updates, you may want to subscribe to our
 * Aiyou Chen
 * Marco Longfils
 * Christoph Best
+* Emeric Thibaud
+* Matteo Courthoud
+* Yang Li
+* Bicheng Ying
 

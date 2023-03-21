@@ -30,9 +30,7 @@ cc_library(
     name = "math_util",
     srcs = ["math_util.cc"],
     hdrs = ["math_util.h"],
-    deps = [
-        "@glog",
-    ],
+    deps = ["@glog"],
 )
 
 cc_test(

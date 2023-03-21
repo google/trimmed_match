@@ -22,6 +22,18 @@ py_library(
 )
 
 py_library(
+    name = "geo_level_estimators",
+    srcs = [
+        "geo_level_estimators.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":common_classes",
+        "//trimmed_match/post_analysis:trimmed_match_post_analysis",
+    ],
+)
+
+py_library(
     name = "trimmed_match_design",
     srcs = [
         "trimmed_match_design.py",
@@ -30,6 +42,7 @@ py_library(
     deps = [
         ":common_classes",
         ":geo_assignment",
+        ":geo_level_estimators",
         ":matched_pairs_rmse",
         ":plot_utilities",
         ":util",
@@ -44,7 +57,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":common_classes",
-        "//trimmed_match:estimator",
+        ":geo_level_estimators",
     ],
 )
 
@@ -89,6 +102,18 @@ py_test(
     deps = [
         ":geo_assignment",
         "//trimmed_match:estimator",
+    ],
+)
+
+py_test(
+    name = "geo_level_estimators_test",
+    srcs = [
+        "tests/geo_level_estimators_test.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":common_classes",
+        ":geo_level_estimators",
     ],
 )
 

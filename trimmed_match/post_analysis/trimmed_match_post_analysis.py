@@ -23,6 +23,9 @@ from trimmed_match import estimator
 from trimmed_match.design import common_classes
 from trimmed_match.design import util
 
+EXPERIMENT = common_classes.ExperimentPeriod.EXPERIMENT
+POST_EXPERIMENT = common_classes.ExperimentPeriod.POST_EXPERIMENT
+
 TrimmedMatchData = collections.namedtuple('TrimmedMatchData', [
     'pair', 'treatment_response', 'control_response', 'treatment_cost',
     'control_cost', 'epsilon'
@@ -60,9 +63,17 @@ def prepare_data_for_post_analysis(
     geo is duplicated, or if any pair does have one geo per group.
   """
   if exclude_cooldown:
-    experiment_data = geox_data[geox_data['period'] == 1].copy()
+    experiment_data = geox_data[geox_data['period'] == EXPERIMENT].copy()
   else:
-    experiment_data = geox_data[geox_data['period'].isin([1, 2])].copy()
+    experiment_data = geox_data[geox_data['period'].isin([POST_EXPERIMENT,
+                                                          EXPERIMENT])].copy()
+
+  if {group_treatment, group_control} - set(geox_data.assignment.values):
+    raise ValueError('The data do not have observations for the two groups.' +
+                     'The labels found in the data in input are ' +
+                     f'{set(geox_data.assignment.values)}, and the expected ' +
+                     f'labels are: Treatment={group_treatment}, ' +
+                     f'Control={group_control}')
 
   grouped_data = experiment_data.groupby(['pair', 'assignment', 'geo'],
                                          as_index=False)[['response',

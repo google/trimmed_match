@@ -15,8 +15,8 @@ git_repository(
 # Google Logging Library
 git_repository(
   name = "glog",
-  commit = "96a2f23dca4cc7180821ca5f32e526314395d26a",
-  shallow_since = "1553223106 +0900",
+  commit = "9630e0e848da22e27b346c38d9b05f0a16cbf7b3",
+  shallow_since = "1570114335 -0400",
   remote = "https://github.com/google/glog",
 )
 
@@ -26,14 +26,15 @@ git_repository(
 # https://docs.bazel.build/versions/master/external.html#transitive-dependencies
 git_repository(
   name = "com_github_gflags_gflags",
-  commit = "e171aa2d15ed9eb17054558e0b3a6a413bb01067",
+  commit = "a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd",
   remote = "https://github.com/gflags/gflags",
 )
 
 # Google C++ Testing Framework
 git_repository(
   name = "com_google_googletest",
-  tag = "release-1.10.0",
+  commit = "5c08f92c881b666998a4f7852c3cf9e393bf33a7",
+  shallow_since = "1615772488 -0700",
   remote = "https://github.com/google/googletest",
 )
 
@@ -41,16 +42,27 @@ git_repository(
 http_archive(
     name = "pybind11",
     build_file = "@pybind11_bazel//:pybind11.BUILD",
-    strip_prefix = "pybind11-2.4.3",
-    urls = ["https://github.com/pybind/pybind11/archive/v2.4.3.tar.gz"],
+    strip_prefix = "pybind11-2.10.3",
+    urls = ["https://github.com/pybind/pybind11/archive/v2.10.3.tar.gz"],
 )
 
 # Bazel rules for pybind11
 http_archive(
     name = "pybind11_bazel",
-    strip_prefix = "pybind11_bazel-d5587e65fb8cbfc0015391a7616dc9c66f64a494",
-    url = "https://github.com/pybind/pybind11_bazel/archive/d5587e65fb8cbfc0015391a7616dc9c66f64a494.zip",
-    sha256 = "bf8e1f3ebde5ee37ad30c451377b03fbbe42b9d8f24c244aa8af2ccbaeca7e6c",
+    strip_prefix = "pybind11_bazel-9a24c33cbdc510fa60ab7f5ffb7d80ab89272799",
+    url = "https://github.com/pybind/pybind11_bazel/archive/9a24c33cbdc510fa60ab7f5ffb7d80ab89272799.zip",
 )
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(name = "local_config_python")
+
+# Bazel Skylib library required for Absl C++ library
+http_archive(
+    name = "bazel_skylib",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+    ],
+    sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
+)
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+bazel_skylib_workspace()

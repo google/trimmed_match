@@ -23,9 +23,16 @@ import pandas as pd
 
 class GeoAssignment(enum.IntEnum):
   """Defines the values for Treatment/Control assignment."""
-  CONTROL = 0
+  CONTROL = 2
   TREATMENT = 1
   EXCLUDED = -1
+
+
+class ExperimentPeriod(enum.IntEnum):
+  """Defines the values for Pre-Experiment, Experiment and Post-Experiment."""
+  PRE_EXPERIMENT = 0
+  EXPERIMENT = 1
+  POST_EXPERIMENT = 2
 
 
 class GeoXType(enum.Enum):
@@ -37,6 +44,27 @@ class GeoXType(enum.Enum):
   HOLD_BACK = enum.auto()  # start ad spend during test (0 during pretest)
   GO_DARK_TREATMENT_NOT_BAU_CONTROL = enum.auto(
   )  # 0 ad spend in treatment, changed (up/down) ad spend in control
+
+
+class DesignSelectionMethod(enum.Enum):
+  """Defines the different methods for design selection.
+
+  MIN_RMSE selects the design that minimizes the rmse.
+  MIN_COST_ADJUSTED_RMSE selects the design that minimizes cost_adjusted_rmse.
+  MIN_COST_ADJUSTED_RMSE_ONE_STD selects the largest design within one standard
+    deviation of the design that minimizes cost_adjusted_rmse.
+  MIN_BIAS selects the design that minimizes the bias.
+  LARGEST_NO_BIAS selects the largest design with bias/std < max_bias_std.
+  LARGEST_LOW_RMSE selects the largest design with rmse < max_rmse.
+  LARGEST selects the largest design.
+  """
+  MIN_RMSE = enum.auto()
+  MIN_COST_ADJUSTED_RMSE = enum.auto()
+  MIN_COST_ADJUSTED_RMSE_ONE_STD = enum.auto()
+  MIN_BIAS = enum.auto()
+  LARGEST_NO_BIAS = enum.auto()
+  LARGEST_LOW_RMSE = enum.auto()
+  LARGEST = enum.auto()
 
 
 class GeoLevelData(NamedTuple):
