@@ -25,6 +25,7 @@
 #include <limits>
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "trimmed_match/core/geox_data_util.h"
 #include "trimmed_match/core/math_util.h"
@@ -69,7 +70,7 @@ class TrimmedMatch {
 
   // Returns the root of the trimmed mean equation which minimizes
   // TrimmedSymmetricNorm().
-  double CalculateIroas(double trim_rate) const;
+  absl::StatusOr<double> CalculateIroas(double trim_rate) const;
 
   // Returns the square root of (asymptotic variance / number of pairs), where
   // asymptotic variance is given by Eq (8.2) in
@@ -84,8 +85,8 @@ class TrimmedMatch {
   // Otherwise, report the result for the given trim rate.
   // Normal_quantile is by default the 90% normal percentile, which corresponds
   // to 80% 2-sided confidence interval.
-  Result Report(double normal_quantile = 1.281551566,
-                double trim_rate = -1.0) const;
+  absl::StatusOr<Result> Report(double normal_quantile = 1.281551566,
+                                double trim_rate = -1.0) const;
 
  private:
   const double max_trim_rate_;

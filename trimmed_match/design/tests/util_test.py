@@ -79,8 +79,8 @@ class UtilTest(unittest.TestCase):
     days_to_remove = util.find_days_to_exclude(day_week_exclude)
     periods = util.expand_time_windows(days_to_remove)
     expected = [
-        pd.Timestamp('2020-10-10', freq='D'),
-        pd.Timestamp('2020-08-10', freq='D'),
+        pd.Timestamp('2020-10-10'),
+        pd.Timestamp('2020-08-10'),
     ]
     expected += pd.date_range(
         start='2020-11-10', end='2020-12-10', freq='D').to_list()
@@ -433,11 +433,15 @@ class UtilTest(unittest.TestCase):
       util.check_input_data(temp_df)
 
   def testCheckInputDataDuplicatedDateGeo(self):
-    temp_df = self.df.copy().append(pd.DataFrame(
-        {'date': pd.to_datetime(['2020-01-01', '2020-01-01']),
-         'geo': [1, 1],
-         'response': [0, 1],
-         'cost': [0, 1]}))
+    temp_df = pd.concat([
+        self.df.copy(),
+        pd.DataFrame({
+            'date': pd.to_datetime(['2020-01-01', '2020-01-01']),
+            'geo': [1, 1],
+            'response': [0, 1],
+            'cost': [0, 1],
+        }),
+    ])
     with self.assertRaisesRegex(
         ValueError, 'There are duplicated date geo pairs.'
     ):

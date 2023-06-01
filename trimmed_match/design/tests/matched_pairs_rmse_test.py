@@ -238,16 +238,20 @@ class MatchedPairsRMSETest(unittest.TestCase):
           geo_pairs_eval_data=dataframe,
           budget=10.0,
           hypothesized_iroas=1.0,
-          base_seed=base_seed)
+          base_seed=base_seed,
+      )
       mpr_exp_shuffled = MatchedPairsRMSE(
           geox_type=geox_type,
           geo_pairs_eval_data=dataframe.sample(
-              frac=1, random_state=0).reset_index(drop=True),
+              frac=1, random_state=0
+          ).reset_index(drop=True),
           budget=10.0,
           hypothesized_iroas=1.0,
-          base_seed=base_seed)
-      pd.util.testing.assert_frame_equal(mpr_exp_ordered._geox_data,
-                                         mpr_exp_shuffled._geox_data)
+          base_seed=base_seed,
+      )
+      pd.testing.assert_frame_equal(
+          mpr_exp_ordered._geox_data, mpr_exp_shuffled._geox_data
+      )
 
   def testSimulateGeoXDataSamePreExperimentPeriod(self):
     dataframe = self._geo_pairs_period_data.copy()
@@ -266,7 +270,7 @@ class MatchedPairsRMSETest(unittest.TestCase):
               "geo", "pair", "spend", "response"]]
       dataframe_preexperiment = dataframe.query(f"period == {PRE_EXPERIMENT}")[
           ["geo", "pair", "spend", "response"]]
-      pd.util.testing.assert_frame_equal(
+      pd.testing.assert_frame_equal(
           geo_pairs_preexperiment_data.reset_index(drop=True),
           dataframe_preexperiment.reset_index(drop=True))
 
@@ -429,7 +433,7 @@ class MatchedPairsRMSETest(unittest.TestCase):
           base_seed=base_seed)
       rmse_all, report_all = mpr_all.report(num_simulations=1, trim_rate=0.0)
       self.assertEqual(rmse_exp, rmse_all)
-      pd.util.testing.assert_frame_equal(report_exp, report_all)
+      pd.testing.assert_frame_equal(report_exp, report_all)
 
 if __name__ == "__main__":
   unittest.main()

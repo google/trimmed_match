@@ -52,8 +52,12 @@ from trimmed_match.design import matched_pairs_rmse
 from trimmed_match.design import plot_utilities
 from trimmed_match.design import util
 
-# Minimum number of geo pairs.
 _DEFAULT_CONFIDENCE_LEVEL = 0.8
+# Default parameters for the assignment tests
+_DEFAULT_MIN_RESPONSE_SHARE = 0.0
+_DEFAULT_MIN_NUMBER_OF_GEOS_PER_GROUP = 1
+_DEFAULT_MAX_FRACTION_LARGEST_GEO = 1.0
+# Minimum number of geo pairs
 _MIN_NUM_PAIRS = 10
 # Minimum total spend
 _SPEND_TOLERANCE = 1e-10
@@ -69,8 +73,8 @@ PRE_EXPERIMENT = common_classes.ExperimentPeriod.PRE_EXPERIMENT
 EXPERIMENT = common_classes.ExperimentPeriod.EXPERIMENT
 
 
-class TrimmedMatchGeoXDesign(object):
-  """A class to create a randomized geo experimental design using Trimmed Match."""
+class TrimmedMatchGeoXDesign:
+  """A randomized geo experimental design using Trimmed Match."""
 
   def __init__(self,
                geox_type: GeoXType,
@@ -81,7 +85,7 @@ class TrimmedMatchGeoXDesign(object):
                spend_proxy: str = 'spend',
                matching_metrics: Optional[Dict[str, float]] = None,
                pairs: Optional[List[pd.DataFrame]] = None):
-    """Initializes TrimmedMatchGeoXDesign.
+    """Initializes the instance.
 
     Args:
       geox_type: str, type of the experiment. See supported values in GeoXType.
@@ -157,7 +161,6 @@ class TrimmedMatchGeoXDesign(object):
     # spend, pair) for evaluation of the RMSE.
     self._geo_level_eval_data = None
     self._geo_period_level_data = None
-    self._pair_index = 0
 
   @property
   def pairs(self):
@@ -170,10 +173,6 @@ class TrimmedMatchGeoXDesign(object):
   @property
   def geo_period_level_data(self):
     return self._geo_period_level_data
-
-  @property
-  def pair_index(self):
-    return self._pair_index
 
   def _create_sign_test_data(self) -> pd.DataFrame:
     """Creates sign test data based on latest pretest data.
@@ -212,7 +211,9 @@ class TrimmedMatchGeoXDesign(object):
       else:
         pretest['training_' + metric] = pretest[metric]
 
-    pretest = pretest.groupby('geo', as_index=False).sum()
+    pretest = (
+        pretest.drop(columns=['date']).groupby('geo', as_index=False).sum()
+    )
     # if the number of geos is odd, remove the largest geo for pairing
     if self._pretest_data['geo'].nunique() % 2 != 0:
       largest_geo = pretest.sort_values('response', ascending=False)[
@@ -264,10 +265,11 @@ class TrimmedMatchGeoXDesign(object):
       raise ValueError('pairs are not specified.')
 
     pretest_data = self._pretest_data.copy()
-    pretest_data = pretest_data.groupby(['geo', 'period'],
-                                        as_index=False).sum()
+    pretest_data = pretest_data.groupby(['geo', 'period'], as_index=False)[
+        [self._response, self._spend_proxy]
+    ].sum()
     eval_data = pretest_data[pretest_data['period'] == EXPERIMENT].groupby(
-        'geo', as_index=False).sum()
+        'geo', as_index=False)[[self._response, self._spend_proxy]].sum()
 
     geo_level_eval_data = []
     geo_period_level_data = []
@@ -520,6 +522,9 @@ class TrimmedMatchGeoXDesign(object):
       pair_index: int,
       base_seed: int,
       confidence: float = _DEFAULT_CONFIDENCE_LEVEL,
+      min_response_share: float = _DEFAULT_MIN_RESPONSE_SHARE,
+      min_number_of_geos_per_group: int = _DEFAULT_MIN_NUMBER_OF_GEOS_PER_GROUP,
+      max_fraction_largest_geo: float = _DEFAULT_MAX_FRACTION_LARGEST_GEO,
       group_control: int = common_classes.GeoAssignment.CONTROL,
       group_treatment: int = common_classes.GeoAssignment.TREATMENT
   ):
@@ -529,44 +534,67 @@ class TrimmedMatchGeoXDesign(object):
       pair_index: int, index of the pairing chosen for the experiment.
       base_seed: seed for the random number generator.
       confidence: float in (0, 1), confidence level for 2-sided CI.
+      min_response_share: minimum response volume share for both groups as a
+        percentage of the total response.
+      min_number_of_geos_per_group: the minimum number of geos in each group.
+      max_fraction_largest_geo: the maximum share of response covered by the
+        largest geo in each group.
       group_control: value representing the control group in the data.
       group_treatment: value representing the treatment group in the data.
     """
-    self._pair_index = pair_index
-    sign_data = self._create_sign_test_data().rename(columns={
-        self._response: 'response',
-        self._spend_proxy: 'spend'
-    })
+    sign_data = self._create_sign_test_data().rename(
+        columns={self._response: 'response', self._spend_proxy: 'spend'}
+    )
     sign_test_data = pd.merge(
         sign_data,
         self._geo_level_eval_data[pair_index][['geo', 'pair']],
-        on='geo', how='outer').fillna({'response': 0, 'spend': 0})
+        on='geo',
+        how='outer',
+    ).fillna({'response': 0, 'spend': 0})
     sign_test_data = sign_test_data[~sign_test_data['pair'].isna()]
     sign_test_data['pair'] = sign_test_data['pair'].astype(int)
     aa_test_data = self._geo_level_eval_data[pair_index].copy()
+    representativeness_test_data = self._geo_period_level_data[pair_index][
+        ['geo', 'pair', 'response']
+    ].groupby(
+        ['geo', 'pair'], as_index=False
+    ).sum()
+    total_pretest_response = self._pretest_data['response'].sum()
 
+    # TODO(b/282119678): replace np.random.seed by a random number generator.
     np.random.seed(base_seed)
     assignment = geo_assignment.generate_balanced_random_assignment(
-        sign_test_data, aa_test_data, confidence, confidence)
+        representativeness_test_data,
+        sign_test_data,
+        aa_test_data,
+        confidence,
+        confidence,
+        min_response_share * total_pretest_response,
+        min_number_of_geos_per_group,
+        max_fraction_largest_geo,
+    )
     self._geo_level_eval_data[pair_index] = self._geo_level_eval_data[
-        pair_index][['geo', 'pair', 'response', 'spend']].merge(
-            assignment, on=['geo', 'pair'], how='left')
+        pair_index
+    ][['geo', 'pair', 'response', 'spend']].merge(
+        assignment, on=['geo', 'pair'], how='left'
+    )
 
-    self._geo_level_eval_data[pair_index][
-        'assignment'] = self._geo_level_eval_data[pair_index]['assignment'].map(
-            {
-                False: group_control,
-                True: group_treatment
-            })
+    self._geo_level_eval_data[pair_index]['assignment'] = (
+        self._geo_level_eval_data[pair_index]['assignment'].map(
+            {False: group_control, True: group_treatment}
+        )
+    )
 
   def plot_pair_by_pair_comparison(
       self,
+      pair_index: int,
       group_control: int = common_classes.GeoAssignment.CONTROL,
-      group_treatment: int = common_classes.GeoAssignment.TREATMENT
+      group_treatment: int = common_classes.GeoAssignment.TREATMENT,
   ) -> sns.FacetGrid:
     """Plot the time series of the response variable for each pair.
 
     Args:
+      pair_index: index of the pairing chosen for the experiment.
       group_control: value representing the control group in the data.
       group_treatment: value representing the treatment group in the data.
 
@@ -575,9 +603,12 @@ class TrimmedMatchGeoXDesign(object):
         contains the time series plot of the response variable for the
         treated geo vs the control geo for a particular pair in the design.
     """
-    g = plot_utilities.plot_paired_comparison(
-        self._pretest_data, self._geo_level_eval_data[self._pair_index],
-        self._response, self._time_window_for_design,
-        self._time_window_for_eval, group_control, group_treatment)
-
-    return g
+    return plot_utilities.plot_paired_comparison(
+        self._pretest_data,
+        self._geo_level_eval_data[pair_index],
+        self._response,
+        self._time_window_for_design,
+        self._time_window_for_eval,
+        group_control,
+        group_treatment,
+    )

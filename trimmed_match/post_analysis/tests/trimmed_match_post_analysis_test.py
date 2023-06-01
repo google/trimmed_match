@@ -281,14 +281,17 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
   def testManyGeosPerPairWithSameAssignment(self):
     temp_df = self.dataframe.copy()
     # add one additional geo to pairs #1 and #4
-    temp_df = temp_df.append(pd.DataFrame({
-        'geo': [9, 10],
-        'response': [10, 11],
-        'cost': [1.0, 2.0],
-        'pair': [1, 4],
-        'assignment': [0, 1],
-        'period': [1, 1],
-    }))
+    temp_df = pd.concat([
+        temp_df,
+        pd.DataFrame({
+            'geo': [9, 10],
+            'response': [10, 11],
+            'cost': [1.0, 2.0],
+            'pair': [1, 4],
+            'assignment': [0, 1],
+            'period': [1, 1],
+        }),
+    ])
     with self.assertRaisesRegex(
         ValueError, r'Some pairs do not have one geo for each group.'):
       trimmed_match_post_analysis.prepare_data_for_post_analysis(
@@ -417,15 +420,18 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
   def testManyGeosPerPairWithSameAssignmentInInputData(self):
     temp_df = self.df.copy()
     # add one additional geo to pairs #1 and #4
-    temp_df = temp_df.append(pd.DataFrame({
-        'date': ['2020-10-10', '2020-10-10'],
-        'geo': [10, 9],
-        'response': [10, 11],
-        'cost': [1.0, 2.0],
-        'pair': [1, 4],
-        'assignment': [CONTROL, TREATMENT],
-        'period': [1, 1],
-    }))
+    temp_df = pd.concat([
+        temp_df,
+        pd.DataFrame({
+            'date': ['2020-10-10', '2020-10-10'],
+            'geo': [10, 9],
+            'response': [10, 11],
+            'cost': [1.0, 2.0],
+            'pair': [1, 4],
+            'assignment': [CONTROL, TREATMENT],
+            'period': [1, 1],
+        }),
+    ])
     with self.assertRaisesRegex(
         ValueError, r'Some pairs do not have one geo for each group.'):
       trimmed_match_post_analysis.check_input_data(temp_df)
@@ -443,14 +449,17 @@ class TrimmedMatchPostAnalysis(unittest.TestCase):
   def testGeosNotInExperimentAreExcluded(self):
     temp_df = self.df.copy()
     # add two additional geos with assignment -1 in new and different pairs.
-    temp_df = temp_df.append(pd.DataFrame({
-        'date': ['2020-10-10', '2020-10-10'],
-        'geo': [9, 10],
-        'response': [10, 11],
-        'cost': [1.0, 2.0],
-        'pair': [100, 101],
-        'assignment': [-1, -1],
-    }))
+    temp_df = pd.concat([
+        temp_df,
+        pd.DataFrame({
+            'date': ['2020-10-10', '2020-10-10'],
+            'geo': [9, 10],
+            'response': [10, 11],
+            'cost': [1.0, 2.0],
+            'pair': [100, 101],
+            'assignment': [-1, -1],
+        }),
+    ])
     geox_data = trimmed_match_post_analysis.check_input_data(temp_df)
     expected_df = pd.DataFrame({
         'date': ['2020-10-09', '2020-10-10', '2020-10-11'] * 4,

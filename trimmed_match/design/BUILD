@@ -140,6 +140,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":common_classes",
+        ":geo_assignment",
         ":matched_pairs_rmse",
         ":trimmed_match_design",
     ],

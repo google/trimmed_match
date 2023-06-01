@@ -10,7 +10,10 @@ py_library(
     srcs = [
         "estimator.py",
     ],
-    data = ["//trimmed_match/core/python:estimator_ext.so"],
+    data = [
+        "//trimmed_match/core/python:estimator_ext.so",
+        "@pybind11_abseil//pybind11_abseil:status.so",
+    ],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
 )
@@ -18,6 +21,7 @@ py_library(
 py_test(
     name = "estimator_test",
     srcs = ["estimator_test.py"],
+    data = ["@pybind11_abseil//pybind11_abseil:status.so"],
     main = "estimator_test.py",
     python_version = "PY3",
     deps = [":estimator"],

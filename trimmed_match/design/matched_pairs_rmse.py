@@ -178,7 +178,7 @@ class MatchedPairsRMSE(object):
     # Precompute geox data
     optional_columns = {"date", "period"} & set(geo_pairs_eval_data.columns)
     self._geox_data = (
-        geo_pairs_eval_data[required_columns | optional_columns].copy()
+        geo_pairs_eval_data[list(required_columns | optional_columns)].copy()
         .sort_values(["pair", "geo"], ignore_index=True))
     self._geox_data["assignment"] = CONTROL
     if "period" not in self._geox_data.columns:

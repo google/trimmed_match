@@ -138,7 +138,7 @@ class TimeWindow:
     Raises:
         ValueError: if input_dates does not overlap with current time window.
     """
-    sorted_dates = input_dates.drop_duplicates().sort_values(ascending=False)
+    sorted_dates = input_dates.sort_values(ascending=False).drop_duplicates()
     duration = self.contains(sorted_dates).sum()
     if duration == 0:
       raise ValueError('Overlap between input_dates and current time window.')

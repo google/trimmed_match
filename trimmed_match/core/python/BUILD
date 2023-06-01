@@ -10,5 +10,8 @@ pybind_extension(
     srcs = ["estimator_ext.cc"],
     copts = ["-fexceptions"],
     features = ["-use_header_modules"],
-    deps = ["//trimmed_match/core:estimator"],
+    deps = [
+        "//trimmed_match/core:estimator",
+        "@pybind11_abseil//pybind11_abseil:status_casters",
+    ],
 )

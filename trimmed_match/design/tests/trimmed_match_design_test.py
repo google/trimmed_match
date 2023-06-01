@@ -18,15 +18,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from trimmed_match.design import common_classes
+from trimmed_match.design import geo_assignment
 from trimmed_match.design import matched_pairs_rmse
 from trimmed_match.design import trimmed_match_design
 
 import unittest
 
+
 GeoXType = common_classes.GeoXType
 TimeWindow = common_classes.TimeWindow
 TrimmedMatchGeoXDesign = trimmed_match_design.TrimmedMatchGeoXDesign
 MatchedPairsRMSE = matched_pairs_rmse.MatchedPairsRMSE
+NoAssignmentError = geo_assignment.NoAssignmentError
 
 CONTROL = common_classes.GeoAssignment.CONTROL
 TREATMENT = common_classes.GeoAssignment.TREATMENT
@@ -1061,6 +1064,84 @@ class TrimmedMatchDesignTest(unittest.TestCase):
                     TREATMENT, CONTROL
                 ]
             })))
+
+  def testErrorGenerateBalancedAssignmentsMinimumGeosPerGroup(self):
+    """Check all assignments with too few geos are rejected."""
+    pretest_data = pd.DataFrame({
+        'date': pd.to_datetime(['2019-01-01', '2019-10-01'] * 20),
+        'geo': sorted(list(range(20)) * 2),
+        'response': range(100, 140),
+        'spend': range(40),
+    })
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=pretest_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+    )
+    _ = test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_simulations=10,
+    )
+    with self.assertRaises(NoAssignmentError):
+      test_class.generate_balanced_assignment(
+          pair_index=0, base_seed=0, min_number_of_geos_per_group=11
+      )
+
+  def testErrorGenerateBalancedAssignmentsMinimumResponse(self):
+    """Check all assignments with too little response share are rejected."""
+    pretest_data = pd.DataFrame({
+        'date': pd.to_datetime(['2019-01-01', '2019-10-01'] * 20),
+        'geo': sorted(list(range(20)) * 2),
+        'response': range(100, 140),
+        'spend': range(40),
+    })
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=pretest_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+    )
+    _ = test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_simulations=10,
+    )
+    # When min_response_share is set to a value >50% no assignment can pass the
+    # representativeness test. Thus generate_balanced_assignment should reach
+    # the maximum number of tries and raise an error.
+    with self.assertRaises(NoAssignmentError):
+      test_class.generate_balanced_assignment(
+          pair_index=0, base_seed=0, min_response_share=0.51
+      )
+
+  def testErrorGenerateBalancedAssignmentsMaximumFractionLargestGeo(self):
+    """Check all assignments with a too large geo are rejected."""
+    pretest_data = pd.DataFrame({
+        'date': pd.to_datetime(['2019-01-01', '2019-10-01'] * 20),
+        'geo': sorted(list(range(20)) * 2),
+        'response': range(100, 140),
+        'spend': range(40),
+    })
+    test_class = TrimmedMatchGeoXDesign(
+        GeoXType.HEAVY_UP,
+        pretest_data=pretest_data,
+        time_window_for_design=self.design_window,
+        time_window_for_eval=self.evaluation_window,
+    )
+    _ = test_class.report_candidate_designs(
+        budget_list=[30],
+        iroas_list=[0],
+        use_cross_validation=True,
+        num_simulations=10,
+    )
+    with self.assertRaises(NoAssignmentError):
+      test_class.generate_balanced_assignment(
+          pair_index=0, base_seed=0, max_fraction_largest_geo=0.1
+      )
 
   def testOutputCandidateDesignAssignmentsWithSusbetOfPairs(self):
     """Check that the design in output is ok when some pairs are filtered."""

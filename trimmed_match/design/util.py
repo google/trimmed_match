@@ -102,19 +102,26 @@ def find_days_to_exclude(
     if len(tmp) == 1:
       try:
         days_exclude.append(
-            TimeWindow(pd.Timestamp(tmp[0]), pd.Timestamp(tmp[0])))
+            TimeWindow(pd.Timestamp(tmp[0]), pd.Timestamp(tmp[0]))
+        )
       except ValueError:
-        raise ValueError(f'Cannot convert the string {tmp[0]} to a valid date.')
+        raise ValueError(
+            f'Cannot convert the string {tmp[0]} to a valid date.'
+        ) from None
     elif len(tmp) == 2:
       try:
         days_exclude.append(
-            TimeWindow(pd.Timestamp(tmp[0]), pd.Timestamp(tmp[1])))
+            TimeWindow(pd.Timestamp(tmp[0]), pd.Timestamp(tmp[1]))
+        )
       except ValueError:
         raise ValueError(
-            f'Cannot convert the strings in {tmp} to a valid date.')
+            f'Cannot convert the strings in {tmp} to a valid date.'
+        ) from None
     else:
-      raise ValueError(f'The input {tmp} cannot be interpreted as a single' +
-                       ' day or a time window')
+      raise ValueError(
+          f'The input {tmp} cannot be interpreted as a single'
+          + ' day or a time window'
+      )
 
   return days_exclude
 
@@ -281,9 +288,10 @@ def infer_frequency(data: pd.DataFrame, date_index: str,
     if n_steps > 1:
       time_diffs = (
           observed_times[1:n_steps] -
-          observed_times[0:(n_steps - 1)]).astype('timedelta64[D]').values
+          observed_times[0:(n_steps - 1)]).astype('timedelta64[s]').values
 
-      min_frequency = np.min(time_diffs)
+      # Compute the frequency in days
+      min_frequency = np.min(time_diffs).astype('float') / (60 * 60 * 24)
 
       series_frequencies.append(min_frequency)
 
@@ -302,7 +310,7 @@ def infer_frequency(data: pd.DataFrame, date_index: str,
     }[series_frequencies[0]]
   except KeyError:
     raise ValueError('Frequency could not be identified. Got %d days.' %
-                     series_frequencies[0])
+                     series_frequencies[0]) from None
 
   return frequency
 
@@ -585,16 +593,20 @@ def check_input_data(
     try:
       data[column] = pd.to_numeric(data[column])
     except:
-      raise ValueError(f'Unable to convert column {column} to numeric.')
+      raise ValueError(
+          f'Unable to convert column {column} to numeric.'
+      ) from None
 
   geos_and_dates = pd.DataFrame(
       itertools.product(data['date'].unique(), data['geo'].unique()),
-      columns=['date', 'geo'])
-  data = pd.merge(
-      geos_and_dates, data, on=['date', 'geo'],
-      how='left').fillna(dict([
-          (x, 0) for x in numeric_columns_to_impute
-      ])).sort_values(by=['date', 'geo']).reset_index(drop=True)
+      columns=['date', 'geo'],
+  )
+  data = (
+      pd.merge(geos_and_dates, data, on=['date', 'geo'], how='left')
+      .fillna(dict([(x, 0) for x in numeric_columns_to_impute]))
+      .sort_values(by=['date', 'geo'])
+      .reset_index(drop=True)
+  )
 
   return data
 

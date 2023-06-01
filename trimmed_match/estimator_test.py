@@ -126,13 +126,25 @@ class EstimatorTest(absltest.TestCase):
       _ = estimator.TrimmedMatch(self._delta_response, self._delta_cost, -0.1)
     # if delta_response and delta_delta have different lengths
     with self.assertRaisesRegex(
-        ValueError, "Lengths of delta_response and delta_spend differ."):
+        ValueError, "Lengths of delta_response and delta_spend differ."
+    ):
       _ = estimator.TrimmedMatch(self._delta_response, self._delta_cost + [1.0])
     # if confidence is outside of (0, 1]
     tm = estimator.TrimmedMatch(self._delta_response, self._delta_cost)
-    with self.assertRaisesRegex(ValueError,
-                                r"Confidence is outside of \(0, 1\]"):
+    with self.assertRaisesRegex(
+        ValueError, r"Confidence is outside of \(0, 1\]"
+    ):
       _ = tm.Report(-0.5, 0.0)
+
+  def testTrimmedMatchCppError(self):
+    # catches errors from C++ code
+    with self.assertRaisesRegex(
+        ValueError,
+        "We could not find a root for the TM equation. One likely reason is"
+        " that the incremental cost for the untrimmed geo pairs is 0.",
+    ):
+      tm = estimator.TrimmedMatch([1, 2, 3, 4], [-10, -1, 1, 10], 0.25)
+      tm.Report(confidence=0.8, trim_rate=0.1)
 
   def testCalculateEpsilons(self):
     """Tests _CalculateEpsilons."""
