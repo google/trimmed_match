@@ -26,9 +26,6 @@
 #include <vector>
 
 #include "glog/logging.h"
-#include "absl/status/status.h"
-#include "absl/status/statusor.h"
-#include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "trimmed_match/core/geox_data_util.h"
 #include "trimmed_match/core/math_util.h"
@@ -81,12 +78,10 @@ TrimmedMatch::TrimmedMatch(const std::vector<double>& delta_response,
       << delta_response.size() << " vs " << delta_cost.size();
 }
 
-absl::StatusOr<double> TrimmedMatch::CalculateIroas(
-    const double trim_rate) const {
-  if (trim_rate < 0.0 || trim_rate > max_trim_rate_) {
-    return absl::InvalidArgumentError(absl::Substitute(
-        "Trim rate must be in (0,$0), but got $1", max_trim_rate_, trim_rate));
-  }
+double TrimmedMatch::CalculateIroas(const double trim_rate) const {
+  CHECK(trim_rate >= 0.0 && trim_rate <= max_trim_rate_)
+      << "Trim rate must be in (0, " << max_trim_rate_ << "), but got "
+      << trim_rate;
 
   if (trim_rate == 0.0) {
     return geox_util_->CalculateEmpiricalIroas();
@@ -95,11 +90,8 @@ absl::StatusOr<double> TrimmedMatch::CalculateIroas(
   const std::vector<double> candidates =
       geox_util_->FindAllZerosOfTrimmedMean(trim_rate);
 
-  if (candidates.empty()) {
-    return absl::InternalError(
-        "We could not find a root for the TM equation. One likely reason is "
-        "that the incremental cost for the untrimmed geo pairs is 0.");
-  }
+  CHECK(!candidates.empty())
+      << "Incremental cost for the untrimmed geo pairs is 0";
 
   if (candidates.size() == 1) {
     return candidates[0];
@@ -158,8 +150,8 @@ double TrimmedMatch::CalculateStandardError(const double trim_rate,
   return std::sqrt(approx_variance / num_pairs_);
 }
 
-absl::StatusOr<Result> TrimmedMatch::Report(const double normal_quantile,
-                                            const double trim_rate) const {
+Result TrimmedMatch::Report(const double normal_quantile,
+                            const double trim_rate) const {
   TrimAndError result;
   std::vector<TrimAndError> candidate_results;
 
@@ -167,10 +159,9 @@ absl::StatusOr<Result> TrimmedMatch::Report(const double normal_quantile,
   // Otherwise, choose a trim rate in that range so that the corresponding
   // standard error of the estimate is close to the minimum.
   if (trim_rate >= 0.0 && trim_rate <= max_trim_rate_) {
-    const absl::StatusOr<double> iroas = CalculateIroas(trim_rate);
-    if (!iroas.ok()) return iroas.status();
-    const double std_error = CalculateStandardError(trim_rate, *iroas);
-    result = {trim_rate, *iroas, std_error};
+    const double iroas = CalculateIroas(trim_rate);
+    const double std_error = CalculateStandardError(trim_rate, iroas);
+    result = {trim_rate, iroas, std_error};
     candidate_results.push_back(result);
   } else {
     const int max_num_trim =
@@ -178,10 +169,9 @@ absl::StatusOr<Result> TrimmedMatch::Report(const double normal_quantile,
     for (int i = 0; i <= max_num_trim; ++i) {
       const double rate = static_cast<double>(i) / num_pairs_;
       if (rate > max_trim_rate_) break;
-      const absl::StatusOr<double> iroas = CalculateIroas(rate);
-      if (!iroas.ok()) return iroas.status();
-      const double std_error = CalculateStandardError(rate, *iroas);
-      candidate_results.push_back({rate, *iroas, std_error});
+      const double iroas = CalculateIroas(rate);
+      const double std_error = CalculateStandardError(rate, iroas);
+      candidate_results.push_back({rate, iroas, std_error});
     }
 
     // Choose the result close to, but no more than 1 + 0.25/sqrt(num_pairs)

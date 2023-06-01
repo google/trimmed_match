@@ -17,15 +17,12 @@
 #include "trimmed_match/core/estimator.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
-#include "pybind11_abseil/status_casters.h"
 
 namespace trimmedmatch {
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(estimator_ext, m) {
-  pybind11::google::ImportStatusModule();
-
   py::class_<TrimAndError>(m, "TrimAndError")
       .def(py::init<>())
       .def_readwrite("trim_rate", &TrimAndError::trim_rate)

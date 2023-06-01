@@ -23,22 +23,18 @@
 namespace trimmedmatch {
 namespace {
 
-void CompareReports(const Result& expected,
-                    const absl::StatusOr<Result>& result,
+void CompareReports(const Result& expected, const Result& result,
                     const double epsilon = 1e-6) {
-  if (result.ok()) {
-    EXPECT_NEAR(expected.estimate, result->estimate, epsilon);
-    EXPECT_NEAR(expected.std_error, result->std_error, epsilon);
-    EXPECT_NEAR(expected.trim_rate, result->trim_rate, epsilon);
-    EXPECT_NEAR(expected.conf_interval_low, result->conf_interval_low, epsilon);
-    EXPECT_NEAR(expected.conf_interval_up, result->conf_interval_up, epsilon);
-    EXPECT_EQ(expected.candidate_results.size(),
-              result->candidate_results.size());
+  EXPECT_NEAR(expected.estimate, result.estimate, epsilon);
+  EXPECT_NEAR(expected.std_error, result.std_error, epsilon);
+  EXPECT_NEAR(expected.trim_rate, result.trim_rate, epsilon);
+  EXPECT_NEAR(expected.conf_interval_low, result.conf_interval_low, epsilon);
+  EXPECT_NEAR(expected.conf_interval_up, result.conf_interval_up, epsilon);
+  EXPECT_EQ(expected.candidate_results.size(), result.candidate_results.size());
 
-    for (size_t i = 0; i < result->candidate_results.size(); ++i) {
-      EXPECT_NEAR(expected.candidate_results[i].iroas,
-                  result->candidate_results[i].iroas, epsilon);
-    }
+  for (size_t i = 0; i < result.candidate_results.size(); ++i) {
+    EXPECT_NEAR(expected.candidate_results[i].iroas,
+                result.candidate_results[i].iroas, epsilon);
   }
 }
 
@@ -70,21 +66,15 @@ TEST(TrimmedMatchInitialization, TrimmedMatchInvalidInput) {
   EXPECT_DEATH(auto result = TrimmedMatch({1, 2, 3}, {1, 2}), "");
 }
 
-TEST_F(EstimatorInternalTest, CalculateIroasEmptyRoot) {
+TEST(CalculateIroasTest, CalculateIroasEmptyRoot) {
   TrimmedMatch trimmed_match({1, 2, 3, 4}, {-10, -1, 1, 10});
-  EXPECT_FALSE(trimmed_match.CalculateIroas(0.1).ok());
-  EXPECT_EQ(
-      trimmed_match.CalculateIroas(0.1).status(),
-      absl::InternalError(
-          "We could not find a root for the TM equation. One likely reason is "
-          "that the incremental cost for the untrimmed geo pairs is 0."));
+  EXPECT_DEATH(auto iroas = trimmed_match.CalculateIroas(0.25), "");
 }
 
 TEST_F(EstimatorInternalTest, InvalidInput) {
-  EXPECT_FALSE(trimmed_match1_.CalculateIroas(-0.25).ok());
-  EXPECT_EQ(trimmed_match1_.CalculateIroas(-0.25).status(),
-            absl::InvalidArgumentError(
-                "Trim rate must be in (0,0.25), but got -0.25"));
+  EXPECT_DEATH(auto iroas = trimmed_match1_.CalculateIroas(-0.25), "");
+  EXPECT_DEATH(auto error = trimmed_match1_.CalculateStandardError(-0.25, 0.0),
+               "");
 }
 
 TEST_F(EstimatorInternalTest, CalculateIroasNoTrim) {
@@ -96,7 +86,7 @@ TEST_F(EstimatorInternalTest, CalculateIroasNoTrim) {
   }
 
   EXPECT_NEAR(total_delta_response / total_delta_cost,
-              *trimmed_match1_.CalculateIroas(0.0), 1e-6);
+              trimmed_match1_.CalculateIroas(0.0), 1e-6);
 }
 
 TEST_F(EstimatorInternalTest, CalculateIroasWithTrim) {
@@ -109,7 +99,7 @@ TEST_F(EstimatorInternalTest, CalculateIroasWithTrim) {
   }
 
   EXPECT_NEAR(total_delta_response / total_delta_cost,
-              *trimmed_match1_.CalculateIroas(0.25), 1e-6);
+              trimmed_match1_.CalculateIroas(0.25), 1e-6);
 }
 
 TEST_F(EstimatorInternalTest, CalculateStandardErrorNoTrim) {

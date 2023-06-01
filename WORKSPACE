@@ -6,17 +6,10 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 #
 
 # Abseil
-http_archive(
-    name = "com_google_absl",
-    sha256 = "44634eae586a7158dceedda7d8fd5cec6d1ebae08c83399f75dd9ce76324de40",  # Last updated 2022-05-18
-    strip_prefix = "abseil-cpp-3e04aade4e7a53aebbbed1a1268117f1f522bfb0",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/3e04aade4e7a53aebbbed1a1268117f1f522bfb0.zip"],
-)
-# skylib dependency required for Abseil
-http_archive(
-  name = "bazel_skylib",
-  urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/1.2.1/bazel-skylib-1.2.1.tar.gz"],
-  sha256 = "f7be3474d42aae265405a592bb7da8e171919d74c16f082a5457840f06054728",
+git_repository(
+  name = "com_google_absl",
+  tag = "20190808",
+  remote = "https://github.com/abseil/abseil-cpp",
 )
 
 # Google Logging Library
@@ -61,14 +54,6 @@ http_archive(
 )
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(name = "local_config_python")
-
-http_archive(
-    name = "pybind11_abseil",
-    sha256 = "6481888831cd548858c09371ea892329b36c8d4d961f559876c64e009d0bc630",
-    strip_prefix = "pybind11_abseil-3922b3861a2b27d4111e3ac971e6697ea030a36e",
-    url = "https://github.com/pybind/pybind11_abseil/archive/3922b3861a2b27d4111e3ac971e6697ea030a36e.tar.gz",
-    patches = ["//trimmed_match:status_module.patch"],
-)
 
 # Bazel Skylib library required for Absl C++ library
 http_archive(

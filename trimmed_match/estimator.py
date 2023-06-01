@@ -23,7 +23,6 @@ import warnings
 import numpy as np
 from scipy import stats
 from trimmed_match.core.python import estimator_ext
-from pybind11_abseil.pybind11_abseil import status
 
 # A class to report the Trimmed Match estimator for a fixed trim rate:
 # trim_rate: float
@@ -212,11 +211,7 @@ class TrimmedMatch(object):
       raise ValueError(f"trim_rate {trim_rate} is greater than max_trim_rate "
                        f"which is {self._max_trim_rate}.")
 
-    try:
-      output = self._tm.Report(
-          stats.norm.ppf(0.5 + 0.5 * confidence), trim_rate)
-    except status.StatusNotOk as e:
-      raise ValueError(str(e)) from e
+    output = self._tm.Report(stats.norm.ppf(0.5 + 0.5 * confidence), trim_rate)
     epsilons = self._CalculateEpsilons(output.estimate)
     temp = np.array(epsilons).argsort()
     ranks = np.empty_like(temp)
